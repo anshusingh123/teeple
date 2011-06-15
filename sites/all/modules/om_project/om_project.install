@@ -1,0 +1,88 @@
+<?php
+// $Id: om_project.install,v 1.1.2.6 2009/12/04 22:06:34 kreynen Exp $
+/**
+ * @file
+ * Creates om_project and om_project_type as well as image_caches used in Project related Views
+ */
+ 
+/**
+* Implementation of hook_install().
+*/
+function om_project_install() {
+
+  drupal_set_message(t('Open Media Project module successfully installed. om_project and om_project_type content types created.'));
+}
+
+function om_project_enable() {
+
+  // Preset
+  $imagecachepreset =  imagecache_preset_by_name('210_pixels_wide_scale');
+  if (!isset($imagecachepreset['presetid'])) {
+    $imagecachepreset = imagecache_preset_save(array('presetname' => '210_pixels_wide_scale'));
+    // Action
+    $imagecacheaction['action'] = 'imagecache_scale';
+    $imagecacheaction['presetid'] = $imagecachepreset['presetid'];
+    $imagecacheaction['module'] = 'imagecache';
+    $imagecacheaction['weight'] = 0;
+    $imagecacheaction['data'] = array('width' => '210', 'height' => '', 'upscale' => 0 );
+    imagecache_action_save($imagecacheaction);
+  }
+
+  $imagecachepreset =  imagecache_preset_by_name('96_square');
+  if (!isset($imagecachepreset['presetid'])) {
+    $imagecachepreset = imagecache_preset_save(array('presetname' => '96_square'));
+    // Action
+    $imagecacheaction['action'] = 'imagecache_deprecated_scale';
+    $imagecacheaction['presetid'] = $imagecachepreset['presetid'];
+    $imagecacheaction['module'] = 'imagecache';
+    $imagecacheaction['weight'] = 0;
+    $imagecacheaction['data'] = array('width' => '96', 'height' => '96', 'fit' => 'outside' );
+    imagecache_action_save($imagecacheaction);
+    $imagecacheaction['action'] = 'imagecache_crop';
+    $imagecacheaction['module'] = 'imagecache';
+    $imagecacheaction['weight'] = 10;
+    $imagecacheaction['presetid'] = $imagecachepreset['presetid'];
+    $imagecacheaction['data'] = array('width' => '96', 'height' => '96', 'xoffset' => 'center', 'yoffset' => 'center' );
+    imagecache_action_save($imagecacheaction);
+  }
+  $imagecachepreset =  imagecache_preset_by_name('uc_thumbnail');
+  if (!isset($imagecachepreset['presetid'])) {
+    $imagecachepreset = imagecache_preset_save(array('presetname' => 'uc_thumbnail'));
+    // Action
+    $imagecacheaction['action'] = 'imagecache_scale';
+    $imagecacheaction['presetid'] = $imagecachepreset['presetid'];
+    $imagecacheaction['module'] = 'imagecache';
+    $imagecacheaction['weight'] = 0;
+    $imagecacheaction['data'] = array('width' => '35', 'height' => '35', 'upscale' => 0 );
+    imagecache_action_save($imagecacheaction);
+  }
+  // create content types
+  include_once('./'. drupal_get_path('module', 'om_project') .'/includes/content_types/content_types.inc');
+  _om_project_install_create_content_types();
+
+
+} // function om_project_install
+
+/**
+* Implementation of hook_uninstall().
+*/
+function om_project_uninstall() {
+
+  imagecache_preset_delete(imagecache_preset_by_name('uc_thumbnail'));
+  imagecache_preset_delete(imagecache_preset_by_name('210_pixels_wide_scale'));
+  imagecache_preset_delete(imagecache_preset_by_name('96_square'));
+  
+  // delete airing and feed nodes
+  $result = db_query("SELECT nid FROM {node} WHERE type = 'om_project' OR type = 'om_project_type'");
+  while ($node = db_fetch_object($result)) {
+    node_delete($node->nid);
+  }
+  
+  // delete CCK content_types
+  $return = node_type_delete('om_project');
+  $return = node_type_delete('om_project_type');
+
+  drupal_set_message(t('Open Media Project module successfully uninstalled.  om_project and om_project_type nodes deleted.  om_timeslot_theme was not deleted because the content type may be referenced by other content types.  If you are no longer using om_timeslot_theme, you should manually delete that content type.'));
+} // om_project_uninstall
+
+

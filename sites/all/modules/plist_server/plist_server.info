@@ -1,0 +1,13 @@
+name = "PLIST server"
+description = "Provides a Services API Server that returns Property List."
+package = "Services - servers"
+dependencies[] = services
+core = 6.x
+
+
+; Information added by drupal.org packaging script on 2010-10-19
+version = "6.x-1.14"
+core = "6.x"
+project = "plist_server"
+datestamp = "1287529587"
+

@@ -1,0 +1,12 @@
+; $Id: om_support.info,v 1.1 2009/02/13 18:43:50 kreynen Exp $
+name = Open Media System Support 
+description = Provides support fucntions for Open Media Project partners.
+package = Open Media System
+core = 6.x
+
+; Information added by drupal.org packaging script on 2010-07-11
+version = "6.x-2.x-dev"
+core = "6.x"
+project = "om_support"
+datestamp = "1278835139"
+

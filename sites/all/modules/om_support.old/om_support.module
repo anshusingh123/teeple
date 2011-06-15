@@ -1,0 +1,18 @@
+<?php
+
+function om_localize_documentation($master_url) {
+  
+$ch = curl_init();
+ 
+curl_setopt($ch, CURLOPT_URL, $master_url);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+ 
+$page = curl_exec($ch);
+$page = strstr($page, '<!--START OM DOC-->');
+//$page = strstr($page, '<div id="book-navigation', true); // Only with PHP 5.3.0
+$page_parts = explode('<div id="book-navigation', $page);
+$page = $page_parts[0];
+$page = str_replace("/sites/default/files/handbooks/", "http://om.civicpixel.com/sites/default/files/handbooks/", $page);
+print $page;
+curl_close($ch);
+}

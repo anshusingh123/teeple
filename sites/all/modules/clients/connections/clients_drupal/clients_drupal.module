@@ -1,0 +1,115 @@
+<?php
+/**
+ * @file
+ * Provides connection types for Clients module that connect to remote Drupal
+ * sites running Services module.
+ */
+
+/**
+ * Implementation of hook_help()
+ * @param path which path of the site we're displaying help
+ * @param arg array that holds the current path as would be returned from arg() function
+ * @return help text for the path
+ */
+function clients_drupal_help($path, $arg) {
+  $output = '';
+  switch ($path) {
+    case "admin/help#clients_drupal":
+      $output = '<p>' .  t("Provides connection plugins for Clients module that connect to remote Drupal sites running Services module.") . '</p>';
+      break;
+  }
+  return $output;
+}
+
+/**
+ * Implementation of hook_clients_connection_type_info().
+ *
+ * Define the connection types we provide.
+ */
+function clients_drupal_clients_connection_type_info() {
+  return array(
+    // Key by machine name. Used as the base for hooks.
+    'drupal_services_5' => array(
+      'label'  => t('Drupal Services 5'), // Human-readable label.
+    ),
+    'drupal_services_6_2' => array(
+      'label'  => t('Drupal Services 6.x-2.x'),
+    ),
+    'drupal_services_7_3' => array(
+      'label'  => t('Drupal Services 7.x-3.x'),
+    ),
+  );
+}
+
+/**
+ * Implementation of hook_menu()
+ */
+function clients_drupal_menu() {
+  $items = array();
+  // Client provider modules may add settings beneath the Settings tab.
+  $items['admin/build/clients/settings/drupal'] = array(
+     'title' => 'Configure Drupal',
+     'page callback' => 'drupal_get_form',
+     'page arguments' => array('clients_drupal_admin'),
+     'access arguments' => array('administer clients connections'),
+     'type' => MENU_LOCAL_TASK,
+  );
+
+  return $items;
+}
+
+/**
+ * Form builder for the Drupal clients admin settings.
+ */
+function clients_drupal_admin($form_states) {
+  $form = array();
+  $options = clients_drupal_encryption_methods();
+  $form['clients_drupal_encryption_method'] = array(
+    '#type' => 'select',
+    '#title' => t('Remote password encryption method'),
+    '#default_value' => variable_get('clients_drupal_encryption_method', 'no_encryption'),
+    '#options' => $options,
+    '#required' => TRUE,
+  );
+
+  return system_settings_form($form);
+}
+
+/**
+ * Helper function to retrieve all available encryption methods.
+ */
+function clients_drupal_encryption_methods() {
+  // Invoke hook_clients_drupal_encryption_methods().
+  $options = module_invoke_all('clients_drupal_encryption_methods');
+  $options['no_encryption'] = t('No encryption');
+  return $options;
+}
+
+/**
+ * Encrypt a value with the chosen encryption method.
+ */
+function clients_drupal_encrypt($val) {
+  $encryption_method = variable_get('clients_drupal_encryption_method', 'no_encryption');
+  if ($encryption_method == 'no_encryption') {
+    return $val;
+  }
+  else {
+    // This is brittle: it depends on the thing declared in
+    // hook_clients_drupal_encryption_methods() having the same key
+    // as the providing module.
+    return module_invoke($encryption_method, 'clients_drupal_encrypt', $val);
+  }
+}
+
+/**
+ * Decrypt a value with the chosen encryption method.
+ */
+function clients_drupal_decrypt($val) {
+  $encryption_method = variable_get('clients_drupal_encryption_method', 'no_encryption');
+  if ($encryption_method == 'no_encryption') {
+    return $val;
+  }
+  else {
+    return module_invoke($encryption_method, 'clients_drupal_decrypt', $val);
+  }
+}

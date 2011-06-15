@@ -1,0 +1,7 @@
+; $Id$
+name = Advanced Poll Service
+description = Advanced Poll funtionality with Services.
+package = Services - services
+dependencies[] = services
+dependencies[] = advpoll
+core = 6.x

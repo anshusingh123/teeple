@@ -1,0 +1,117 @@
+>> Input application root directory.
+   ex) /app/tsmsg/java_sms_module_tx @
+>> Input java home directory.
+   ex) default or /opt/jdk1.4
+@
+>> Input sk telink server connect ip address.
+   ex) 211.117.63.152
+@
+>> Input sk telink server connect port number.
+   ex) 7003
+@
+>> Input sk telink connect user id.
+   ex) sktelink01
+@
+>> Input sk telink connect user password.
+   ex) link1004
+@
+>> Select your database kind. choose one.
+       1 : oracle
+       2 : mysql
+       3 : ms-sql
+       4 : db2
+       5 : sybase
+       6 : sybase( Same or over the ver 12.5.3 )
+       7 : informix
+       8 : ms-sql ( Same or over the ver 2005 )
+   ex) 1
+@
+>> Input database server connect ip address.
+   ex) 211.117.63.152
+@
+>> Input database server connect port number.
+   ex) 2777
+@
+>> Input database user id.
+   ex) sms1
+@
+>> Input database SID.
+   ex) websms
+@
+>> Input database user password.
+   ex) websms70
+@
+>> Input database table name.
+   ex) telink_sms
+@
+>> Input database select row number. between 1 and 1000.
+   ex) 500
+@
+>> Input database informix server name. other database input default.
+   ex) pchdq791
+@
+>> Select write log level. choose one.
+       0 : lowst level   : only information by connection
+       1 : low level     : (0) with story flow
+       2 : default level : (0,1) with socket stream packet
+       3 : high level    : (0,1,2) with socket value of data
+   ex) 2
+@
+>> Select write type. choose one.
+       0 : Wrrite log at month after month
+       1 : Wrrite log at day after day
+       2 : Wrrite log at hour after hour
+   ex) 2
+@
+>> Input write log period.
+   ex) 60
+@
+>> Input write log file path.
+   ex) /app/tsmsg
+@
+>> Select small contents or big contents. choose one.
+       0 : Method by Small-Contents
+       1 : Method by Big-Contents
+   ex) 1
+@
+>> Select single mode or dual mode. choose one.
+       0 : Method by Single-mode or Dual-mode-tx
+       1 : Method by Dual-mode-rx
+   ex) 0
+@
+>> Select synchronous or Asynchronous. choose one.
+       0 : Method by Synchronous
+       1 : Method by Asynchronous
+   ex) 1
+@
+>> Input sleep time for retry connection.
+       unit option : second ( ex: 1 minute => 60 & 1 hour => 360)
+   ex) 60
+@
+>> Input ignorable time for NON-SMS.
+       unit option : type : hh24 ( ex: 1 hour => 1 )
+       default : non-using : 0
+   ex) 0
+@
+>> Input stop processing time for NON-SMS.
+       unit option : type : hh24mi ( ex: 14:11 => 1411 , 01:00 => 0100
+       default : non-using : XXX
+   ex) 1430
+@
+>> Input start processing time for NON-SMS.
+       unit option : type : hh24mi ( ex: 14:11 => 1411 , 01:00 => 0100
+       default : non-using : XXX
+   ex) 1455
+@
+>> Input alarm phone-number.
+       add option 1 : Don't maked '/' behind tail
+       add option 2 : Must maked '-' between number
+       add option 3 : ALARM_NUMBER=011222333/01622223333 ...
+
+   ex) 011222333/01622223333  (O)
+       011222333/01622223333/ (X)
+       XXX (case by non-manager)
+@
+>> Input your system character encoding.
+   ex) euc-kr
+@

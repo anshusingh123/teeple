@@ -1,0 +1,14 @@
+; $Id$
+name = "MERCI Permissions"
+package = MERCI
+description = "Administration form to more easily manage reservation permissions for MERCI."
+core = 6.x
+dependencies[] = merci 
+project = "merci"
+
+; Information added by drupal.org packaging script on January 1, 1970 - 00:00
+version = "6.x-2.0-beta10"
+core = "6.x"
+project = "merci"
+datestamp = "1296008817"
+

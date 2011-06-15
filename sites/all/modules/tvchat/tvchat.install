@@ -1,0 +1,206 @@
+<?php
+// $Id$
+
+function tvchat_install()
+{
+  include_once( drupal_get_path('module', 'tvchat').'/tvchat.module');
+
+  $success = drupal_install_schema( 'tvchat');
+
+  if ( $success) {
+    // install a default flag
+		$config = array(
+			'max_checkin_day' => '10',
+			'checkin_count' => '1',
+			'favorite_count' => '5',
+			'comment_count' => '1',
+		);
+
+		_tvchat_update( $config);
+  }
+
+  if ( $success) {
+    drupal_set_message( st('TV Chat module installed tables successfully.'));
+  }
+  else {
+    drupal_set_message( st('The installation of TV Chat module failed.'), 'error');
+  }
+}
+
+function tvchat_uninstall()
+{
+  drupal_uninstall_schema( 'tvchat');
+  $result = db_query( "SELECT name from {variable} WHERE name LIKE 'tvchat_%'");
+  while( $row = db_fetch_object( $result)) {
+    variable_del( $row->name);
+  }
+
+  drupal_set_message( t('TV Chat has been uninstalled.'));
+}
+
+
+function tvchat_schema() 
+{
+  $schema = array();
+
+  $schema['tvchat_config'] = array(
+    'fields' => array(
+	  'keystr' => array(
+	    'type' => 'varchar',
+		'length' => '24',
+		'not null' => TRUE,
+		'default' => '',
+	  ),
+	  'valuestr' => array(
+	    'type' => 'varchar',
+		'length' => '16',
+		'not null' => FALSE,
+		'default' => '',
+	  ),
+	),
+	'primary key' => array( 'keystr'),
+  );
+
+  $schema['tvchat_rating'] = array(
+    'fields' => array(
+			'date' => array(		// checkin date YYYYMMDD
+				'type' => 'varchar',
+				'length' => '10',
+				'not null' => TRUE,
+				'default' => '',
+			),
+			'content_id' => array(	// content id
+				'type' => 'int',
+				'unsigned' => TRUE,
+				'not null' => TRUE,
+				'default' => 0,
+			),
+			'checkin_count' => array(		// checkin count
+				'type' => 'int',
+				'unsigned' => TRUE,
+				'not null' => TRUE,
+				'default' => 0,
+			),
+			'favorite_count' => array(		// favorite count
+				'type' => 'int',
+				'unsigned' => TRUE,
+				'not null' => TRUE,
+				'default' => 0,
+			),
+			'comment_count' => array(		// comment count
+				'type' => 'int',
+				'unsigned' => TRUE,
+				'not null' => TRUE,
+				'default' => 0,
+			),
+  ),
+    'unique keys' => array(
+	  'date_content_id' => array( 'date', 'content_id'),
+	),
+	'indexes' => array(
+	  'checkin_date_id' => array( 'date', 'content_id'),
+	),
+  );
+
+  $schema['tvchat_ranking_daily'] = array(
+    'fields' => array(
+      'entity_type' => array(
+        'type' => 'varchar',
+        'length' => '24',
+        'not null' => TRUE,
+        'default' => '',
+      ),
+			'entity_nid' => array(	// content id
+				'type' => 'int',
+				'unsigned' => TRUE,
+				'not null' => FALSE,
+				'default' => 0,
+			),
+      'entity_uid' => array(	// user id
+				'type' => 'int',
+				'unsigned' => TRUE,
+				'not null' => FALSE,
+				'default' => 0,
+			),
+      'entity_taxonomy' => array(	// points sum
+				'type' => 'int',
+				'unsigned' => TRUE,
+				'not null' => FALSE,
+				'default' => 0,
+			),
+      'reference' => array(	// reference field
+				'type' => 'int',
+				'unsigned' => TRUE,
+				'not null' => FALSE,
+				'default' => 0,
+			),
+      'points' => array(	// points sum
+				'type' => 'int',
+				'unsigned' => TRUE,
+				'not null' => TRUE,
+				'default' => 0,
+			),			
+      'target_date' => array(	// content id
+				'type' => 'int',
+				'unsigned' => TRUE,
+				'not null' => TRUE,
+				'default' => 0,
+			),
+		),
+    'unique keys' => array(
+	    'entity_type_id_target_date' => array( 'entity_type', 'entity_nid', 'entity_uid', 'target_date'),
+    ),
+	);
+
+  $schema['tvchat_ranking_weekly'] = array(
+    'fields' => array(
+      'entity_type' => array(
+        'type' => 'varchar',
+        'length' => '24',
+        'not null' => TRUE,
+        'default' => '',
+      ),
+			'entity_nid' => array(	// content id
+				'type' => 'int',
+				'unsigned' => TRUE,
+				'not null' => FALSE,
+				'default' => 0,
+			),
+      'entity_uid' => array(	// user id
+				'type' => 'int',
+				'unsigned' => TRUE,
+				'not null' => FALSE,
+				'default' => 0,
+			),
+      'entity_taxonomy' => array(	// points sum
+				'type' => 'int',
+				'unsigned' => TRUE,
+				'not null' => FALSE,
+				'default' => 0,
+			),
+      'reference' => array(	// reference field
+				'type' => 'int',
+				'unsigned' => TRUE,
+				'not null' => FALSE,
+				'default' => 0,
+			),
+      'points' => array(	// points sum
+				'type' => 'int',
+				'unsigned' => TRUE,
+				'not null' => TRUE,
+				'default' => 0,
+			),			
+      'target_date' => array(	// content id
+				'type' => 'int',
+				'unsigned' => TRUE,
+				'not null' => TRUE,
+				'default' => 0,
+			),
+		),
+    'unique keys' => array(
+	    'entity_type_id_target_date' => array( 'entity_type', 'entity_nid', 'entity_uid', 'target_date'),
+    ),
+	);
+
+  return $schema;
+}

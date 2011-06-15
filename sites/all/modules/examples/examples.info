@@ -1,0 +1,11 @@
+; $Id: examples.info,v 1.1.2.1 2010/12/28 20:46:29 rfay Exp $
+name = Examples For Developers
+description = A variety of example code for you to learn from and hack upon.
+package = Example modules
+core = 6.x
+; Information added by drupal.org packaging script on 2010-12-29
+version = "6.x-1.x-dev"
+core = "6.x"
+project = "examples"
+datestamp = "1293581592"
+

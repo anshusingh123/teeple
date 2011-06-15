@@ -1,0 +1,514 @@
+<?php
+/**
+ * @file
+ * Clients module provides a UI, storage, and an API for handling connections
+ * to remote webservices, including those provided by Services module on other
+ * Drupal sites.
+ */
+
+/**
+ * Call a remote method on a client.
+ *
+ * This the main API for Client connections and should be considered stable.
+ * Used thus:
+ *  clients_connection_call('connection_machine_name', 'method_name', $params...);
+ * For example:
+ *  clients_connection_call('my_connection', 'node.load', 1);
+ * will return node 1 loaded from the remote site.
+ *
+ * @param $name
+ *  The connection machine name.
+ * @param $method
+ *  The name of the remote method to call.
+ * @param ...
+ *  All other parameters are passed to the remote method.
+ */
+function clients_connection_call($name, $method) {
+  $connection = clients_connection_load($name);
+
+  // Get all the arguments this function has been passed.
+  $function_args  = func_get_args();
+  // Slice out the ones that are arguments to the method call: everything past
+  // the 2nd argument.
+  $method_args    = array_slice($function_args, 2);
+
+  $return = $connection->callMethodArray($method, $method_args);
+  return $return;
+}
+
+/**
+ * Implementation of hook_help().
+ *
+ * @param $path
+ *   Which path of the site we're displaying help.
+ * @param $arg
+ *   Holds the current path as would be returned from arg() function.
+ * @return
+ *   Help text for the path.
+ */
+function clients_help($path, $arg) {
+  $output = '';
+  switch ($path) {
+    case "admin/help#clients":
+      $output = '<p>' . t("Clients module provides a UI, storage, and an API for handling connections to remote webservices, including those provided by Services module on other Drupal sites.") . '</p>';
+      break;
+    case 'admin/build/clients':
+      $output = '<p>' . t("The clients module allows you to define connections to remote sites that provide services. ")
+        . t("Use the list below to configure and review the connections defined on your site.")
+        . '</p>';
+      break;
+    case 'admin/build/clients/connections/%/test':
+      // (For some reason menu loaders don't work in hook_help() it seems.)
+      $output  = '<p>' . t('Use this page to test your connection is set up correctly.') . '</p>';
+      break;
+  }
+  return $output;
+}
+
+/**
+ * Implementation of hook_perm().
+ *
+ * @return
+ *   An array of valid permissions for the clients module.
+ */
+function clients_perm() {
+  return array('administer clients connections');
+}
+
+/**
+ * Implementation of hook_menu().
+ */
+function clients_menu() {
+  $items = array();
+
+  $items['admin/build/clients'] = array(
+    'title' => 'Clients',
+    'description' => 'Clients',
+    'page callback' => 'clients_connections_list',
+    'file' => 'clients.connection.admin.inc',
+    'access arguments' => array('administer clients connections'),
+    'type' => MENU_NORMAL_ITEM,
+    );
+
+  $items['admin/build/clients/connections'] = array(
+    'title' => 'Connections',
+    'weight' => 1,
+    'description' => 'List connections',
+    'page callback' => 'clients_connections_list',
+    'file' => 'clients.connection.admin.inc',
+    'access arguments' => array('administer clients connections'),
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+  );
+
+  $items['admin/build/clients/connections/add/%'] = array(
+    'title' => 'Add connection',
+    'page callback' => 'clients_connection_add',
+    'page arguments' => array(5),
+    'file' => 'clients.connection.admin.inc',
+    'access arguments' => array('administer clients connections'),
+  );
+
+  $items['admin/build/clients/connections/%clients_connection'] = array(
+    'title' => 'Connection',
+    'description' => 'Show connection',
+    'page callback' => 'clients_connection_view',
+    'page arguments' => array(4),
+    'file' => 'clients.connection.admin.inc',
+    'access arguments' => array('administer clients connections'),
+    'weight' => 0,
+    // This prevents the tabs showing under the connection list admin where
+    // they have no meaning. Cribbed from taxonomy_menu().
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['admin/build/clients/connections/%clients_connection/view'] = array(
+    'title' => 'View',
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+    'weight' => -10,
+  );
+
+  $items['admin/build/clients/connections/%clients_connection/edit'] = array(
+    'title' => 'Edit',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('clients_connection_form', 4),
+    'file' => 'clients.connection.admin.inc',
+    'access arguments' => array('administer clients connections'),
+    'weight' => 1,
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  $items['admin/build/clients/connections/%clients_connection/test'] = array(
+    'title' => 'Test',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('clients_connection_test_form', 4),
+    'file' => 'clients.connection.admin.inc',
+    'access arguments' => array('administer clients connections'),
+    'weight' => 2,
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  $items['admin/build/clients/connections/%clients_connection/delete'] = array(
+    'title' => 'Delete connection',
+    'description' => 'Delete a connection',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('client_delete_confirm', 'connection', 4),
+    'access arguments' => array('administer clients connections'),
+    'type' => MENU_CALLBACK,
+  );
+
+  $items['admin/build/clients/settings'] = array(
+    'title' => 'Settings',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('clients_admin_cache'),
+    'access arguments' => array('administer clients connections'),
+    'weight' => 10,
+    'type' => MENU_LOCAL_TASK,
+  );
+
+  $items['admin/build/clients/settings/cache'] = array(
+    'title' => 'Cache',
+    'weight' => -1,
+    'description' => 'cccc connections',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('clients_admin_cache'),
+    'access arguments' => array('administer clients connections'),
+    'type' => MENU_DEFAULT_LOCAL_TASK,
+  );
+
+  return $items;
+}
+
+/**
+ * Form builder for the admin settings form.
+ */
+function clients_admin_cache($form_state) {
+  $form = array();
+
+  $form['clients_cache_time'] = array(
+    '#type' => 'select',
+    '#title' => t('Local cache time'),
+    '#default_value' => variable_get('clients_cache_time', '0'), // change default in production
+    '#options' => array(
+      '0' => t('No cache'),
+      'cron' => t('Refresh on next cron run'),
+      '60' => t('1 hour'),
+      '720' => t('12 hours'),
+      '2880' => t('2 days'),
+    ),
+    '#description' => t("Minimum cache lifetime (if set, content will refresh on the next cron run after this time has elapsed)"),
+    '#required' => TRUE,
+  );
+
+  return system_settings_form($form);
+}
+
+/**
+ * Form builder for confirmation of deletion of a connection.
+ */
+function client_delete_confirm(&$form_state, $type, $service) {
+  // Store values for the submit handler.
+  $form['type'] = array('#type' => 'value', '#value' => $type);
+  $form['cid'] = array('#type' => 'value', '#value' => $service->cid);
+  $form['name'] = array('#type' => 'value', '#value' => $service->name);
+
+  return confirm_form($form,
+    t('Are you sure you want to delete !type %title?', array(
+      '!type' => $type,
+      '%title' => $service->name,
+    )),
+    isset($_GET['destination']) ? $_GET['destination'] : "admin/build/clients/{$type}s/$service->cid",
+    t('This action cannot be undone.'),
+    t('Delete'),
+    t('Cancel')
+  );
+}
+
+/**
+ * Form submit handler for the deletion form.
+ *
+ * @todo: refactor?
+ */
+function client_delete_confirm_submit($form, &$form_state) {
+  $cid = (int) $form_state['values']['cid'];
+  if ($form_state['values']['type'] == 'connection') {
+    if ($result = db_query("DELETE FROM {clients_connections} WHERE cid = %d", $cid)) {
+      drupal_set_message(t('Connection @name deleted.', array('@name' => $form_state['values']['name'])));
+      $form_state['redirect'] = 'admin/build/clients/connections';
+    }
+    else {
+      drupal_set_message(t('Problem deleting connection @name.', array('@name' => $form_state['values']['name'])), 'error');
+    }
+  }
+}
+
+/**
+ * Implementation of hook_flush_caches().
+ */
+function clients_flush_caches() {
+  return array('cache_clients');
+}
+
+/**
+ * Load a connection object by id, which can then be used to make method calls.
+ *
+ * This is mostly kept here for backwards compatibility with dependent modules
+ * which I don't have time to fix right now; however it does mean that those
+ * modules can't use connections stored in code (as they have no cid).
+ *
+ * Usage:
+ *  $client = clients_get_connection($cid);
+ *  $client->callMethod('node.load', array(1));
+ *
+ * @param $cid
+ *  The id of a connection.
+ */
+function clients_get_connection($cid) {
+  ctools_include('export');
+  $result = ctools_export_load_object('clients_connections', 'conditions', array('cid' => $cid));
+  if (count($result)) {
+    // This is sort of going round the houses to get the right object class but it's simple.
+    $connection = array_pop($result);
+    $connection = clients_connection_load($connection->name);
+  }
+
+  return $connection;
+}
+
+/**
+ * Load a connection object which can then be used to make method calls.
+ *
+ * Used as a menu loader. CTools has static caching so it's okay that we come
+ * here tons of times on a single page load in our admin section.
+ *
+ * @param $name
+ *  A connection machine name.
+ * @return
+ *  A fully loaded connection handler object.
+ */
+function clients_connection_load($name) {
+  ctools_include('export');
+  $result = ctools_export_load_object('clients_connections', 'names', array($name));
+  if (isset($result[$name])) {
+    $connection = $result[$name]; // new $class($result[$name]);
+    
+    return $connection;
+  }
+}
+
+/**
+ * Load all connections.
+ *
+ * This is a convenience wrapper around the CTools API.
+ *
+ * @param $types
+ *  (optional) Specify a single type or a list of types to include.
+ *  If omitted, all are returned.
+ * @return
+ *  An array of connection objects, keyed by name.
+ */
+function clients_connection_load_all($types = array()) {
+  if (!is_array($types)) {
+    $types = array($types);
+  }
+
+  ctools_include('export');
+  /*
+  // Once http://drupal.org/node/1161244 is fixed, we can pass a condition to
+  // CTools, as below:
+  if (count($types)) {
+    foreach ($types) {
+      $conditions['type']
+    }
+    dsm($types);
+    $connections = ctools_export_load_object('clients_connections', 'conditions');
+    //$placeholders = implode(',', array_fill(0, count($types), "'%s'"));
+    //$where = "WHERE type IN ($placeholders)";
+  }
+  else {
+    $connections = ctools_export_load_object('clients_connections', 'all');
+  }
+  */
+  // ...but in the meantime we'll have to filter the list ourselves.
+  $connections = ctools_export_load_object('clients_connections', 'all');
+  if (count($types)) {
+    foreach ($connections as $connection_name => $connection) {
+      if (!in_array($connection->type, $types)) {
+        unset($connections[$connection_name]);
+      }
+    }
+  }
+  // We generally want connections ordered by machine name.
+  ksort($connections);
+
+  return $connections;
+}
+
+/**
+ * CTools object factory: unpacks the data from CTools into the right class.
+ *
+ * @param $schema
+ *   The schema from drupal_get_schema().
+ * @param $data
+ *   The data as loaded by db_fetch_object().
+ */
+function clients_connection_unpack_object($schema, $data) {
+  $type = $data->type;
+  $class = 'clients_connection_' . $type;
+
+  // Handle missing classes. Note that class_exists() works with autoloading!
+  if (!class_exists($class)) {
+    $class = 'clients_connection_broken';
+    $data->broken_message = t('The class for this connection is missing. Perhaps the module providing this is not available?');
+  }
+
+  // The connection's __construct() takes over from here.
+  $object = new $class($data);
+
+  return $object;
+}
+
+/**
+ * Get a list of all connection types.
+ */
+function clients_get_connection_types() {
+  static $connection_types;
+  if (!isset($connection_types)) {
+    // Invoke hook_clients_connection_type_info().
+    $connection_types = module_invoke_all('clients_connection_type_info');
+  }
+  return $connection_types;
+}
+
+/**
+ * FormAPI helper to get a list of clients for a select form element.
+ *
+ * @param $types
+ *  (optional) Specify a single type or a list of types to include.
+ *  If omitted, all are returned.
+ * @param $required
+ *  Whether the select element is required.
+ * @return
+ *   Array of options for a FormAPI select element; assumed to be single
+ *   rather than multiple-valued.
+ */
+function clients_connections_select_options($types = array(), $required = TRUE) {
+  $options = array();
+  if ($required) {
+    $options[0] = t('- Please choose -');
+  }
+  else {
+    $options[0] = t('- None selected -');
+  }
+
+  foreach (clients_connection_load_all($types) as $name => $connection) {
+    $options[$name] = $name;
+  }
+
+  return $options;
+}
+
+/**
+ * FormAPI helper to get a list of clients for a checkboxes form element.
+ *
+ * @param $types
+ *  (optional) Specify a single type or a list of types to include.
+ *  If omitted, all are returned.
+ */
+function clients_connections_checkbox_options($types = array()) {
+  $options = array();
+  foreach (clients_connection_load_all($types) as $name => $connection) {
+    $options[$name] = $name;
+  }
+
+  return $options;
+}
+
+/**
+ * Export an object into code.
+ *
+ * This is our alternative to ctools_export_object().
+ * We need to follow the same pattern in code as in loading from the database
+ * and from CTools: load the data into a plain object, then pass that to the
+ * constructor of the desired class. This is because classes' constructors
+ * may do different things and need the data first to do them with.
+ *
+ * In the interests of sanity, places where this function deviates from the
+ * model are marked.
+ */
+function clients_export_object($object, $indent = '', $connection_identifier = NULL, $additions = array(), $additions2 = array()) {
+  // Change: We need to specify this ourselves.
+  $table = 'clients_connections';
+
+  // Change: In the interest of not deviating too much, we just repurpose
+  // $identifier to 'object' and hence change the name of the variable for the
+  // actual export, since we only use it once.
+  $schema = ctools_export_get_schema($table);
+  if (!isset($connection_identifier)) {
+    $connection_identifier = $schema['export']['identifier'];
+  }
+
+  // Change: Just create a stdClass object for now.
+  $identifier = 'object';
+  $output = $indent . '$' . $identifier . " = new stdClass;\n";
+
+  if ($schema['export']['can disable']) {
+    $output .= $indent . '$' . $identifier . '->disabled = FALSE; /* Edit this to true to make a default ' . $identifier . ' disabled initially */' . "\n";
+  }
+  if (!empty($schema['export']['api']['current_version'])) {
+    $output .= $indent . '$' . $identifier . '->api_version = ' . $schema['export']['api']['current_version'] . ";\n";
+  }
+
+  // Put top additions here:
+  foreach ($additions as $field => $value) {
+    $output .= $indent . '$' . $identifier . '->' . $field . ' = ' . ctools_var_export($value, $indent) . ";\n";
+  }
+
+  $fields = $schema['fields'];
+  if (!empty($schema['join'])) {
+    foreach ($schema['join'] as $join) {
+      if (!empty($join['load'])) {
+        foreach ($join['load'] as $join_field) {
+          $fields[$join_field] = $join['fields'][$join_field];
+        }
+      }
+    }
+  }
+
+  // Go through our schema and joined tables and build correlations.
+  foreach ($fields as $field => $info) {
+    if (!empty($info['no export'])) {
+      continue;
+    }
+    if (!isset($object->$field)) {
+      if (isset($info['default'])) {
+        $object->$field = $info['default'];
+      }
+      else {
+        $object->$field = '';
+      }
+    }
+
+    // Note: This is the *field* export callback, not the table one!
+    if (!empty($info['export callback']) && function_exists($info['export callback'])) {
+      $output .= $indent . '$' . $identifier . '->' . $field . ' = ' . $info['export callback']($object, $field, $object->$field, $indent) . ";\n";
+    }
+    else {
+      $value = $object->$field;
+      if ($info['type'] == 'int') {
+        $value = (isset($info['size']) && $info['size'] == 'tiny') ? (bool) $value : (int) $value;
+      }
+
+      $output .= $indent . '$' . $identifier . '->' . $field . ' = ' . ctools_var_export($value, $indent) . ";\n";
+    }
+  }
+
+  // And bottom additions here
+  foreach ($additions2 as $field => $value) {
+    $output .= $indent . '$' . $identifier . '->' . $field . ' = ' . ctools_var_export($value, $indent) . ";\n";
+  }
+
+  // Change: Add the actual connection object.
+  $output .= $indent . '$' . $connection_identifier . ' = new ' . get_class($object) . '($' . $identifier . ')' . ";\n";
+
+  return $output;
+}

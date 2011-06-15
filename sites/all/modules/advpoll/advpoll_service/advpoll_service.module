@@ -1,0 +1,20 @@
+<?php
+
+// $Id$
+
+
+function advpoll_service_perm() {
+  return array(
+    'create advanced poll from remote'
+    );
+}
+
+function advpoll_service_service() {
+  return array(
+
+    // advpoll.rstview 
+    array(
+      '#method'           => 'advpoll.rstview',
+      '#callback'         => 'advpoll_service_results',
+      '#access arguments' => array('advanced poll from remote'),
+      '#file'             => array('file' =

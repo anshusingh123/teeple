@@ -1,0 +1,30 @@
+<?php
+
+
+/**
+* Implementation of hook_requirements()
+*/
+function plist_server_requirements($phase) {
+  $requirements = array();
+  $t = get_t();
+
+  switch ($phase) {
+   case 'runtime':
+      $error = FALSE;
+      $library_location = variable_get('plist_server_library', './sites/all/libraries/cfpropertylist/CFPropertyList.php');
+      if (!file_exists($library_location)) {
+        $requirements['plist_server'] = array(
+          'value' => $t('CFPropertyList does not exist at "' . $library_location .', you can download it <a href="@url">here</a> if you do have it. If it exists in another location please goto <a href="@settingsurl">PLIST server settings</a>.', array('@url' => 'http://code.google.com/p/cfpropertylist', '@settingsurl'=>url('admin/build/services/settings/plist'))),
+          'severity' => REQUIREMENT_ERROR,
+        );
+      }
+      break;
+  }
+  if(!$requirements['plist_server']['value']) {
+    $requirements['plist_server']['value'] = t('CFProperty is installed'); 
+  }
+  $requirements['plist_server']['title'] = $t('PLIST Server');
+  return $requirements;
+}
+
+?>

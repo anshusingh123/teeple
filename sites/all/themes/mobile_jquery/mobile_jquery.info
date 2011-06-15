@@ -1,0 +1,23 @@
+; $Id$
+name = Mobile jQuery Theme
+description = A theme created using the jQuery Mobile framework.
+version = VERSION
+core = 6.x
+engine = phptemplate
+
+scripts[] = scripts/script.js
+stylesheets[][] = styles/style.css
+
+; Information added by drupal.org packaging script on 2011-03-16
+version = "6.x-1.2-alpha1"
+core = "6.x"
+project = "mobile_jquery"
+datestamp = "1300287969"
+
+
+; Information added by drupal.org packaging script on 2011-03-21
+version = "6.x-2.0"
+core = "6.x"
+project = "mobile_jquery"
+datestamp = "1300670769"
+

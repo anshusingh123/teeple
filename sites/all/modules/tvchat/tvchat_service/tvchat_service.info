@@ -1,0 +1,7 @@
+;$Id$
+name = TVChat_Service
+description = Some services for TV Chat
+core = 6.x
+php = 5.1
+#package = Services - services
+#dependencies = services

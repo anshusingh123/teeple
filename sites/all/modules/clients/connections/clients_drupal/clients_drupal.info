@@ -1,0 +1,14 @@
+name = Drupal clients
+description = Provides connections to remote Drupal sites running Services module.
+core = 6.x
+php = 5.1
+dependencies[] = clients
+package = Clients
+files[] = clients_drupal.inc
+
+; Information added by drupal.org packaging script on 2011-06-08
+version = "6.x-2.0-beta3"
+core = "6.x"
+project = "clients"
+datestamp = "1307514416"
+

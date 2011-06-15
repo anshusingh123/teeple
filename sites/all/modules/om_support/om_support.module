@@ -1,0 +1,1080 @@
+<?php
+
+/**
+ * Implementation of hook_perm().
+ */
+function om_support_perm() {
+  return array('administration Open Media System');
+} // function om_support_perm
+
+/**
+ * Implementation of hook_menu().
+ */
+
+function om_support_menu() {
+  $items = array();
+  
+  // Adds Open Media Section to Admin Interface
+  $items['admin/openmedia'] = array(
+    'title' => 'Open Media System',
+    'description' => 'Administration and configuration options for Open Media System.',
+    'position' => 'right',
+    'page callback' => 'system_admin_menu_block_page',
+    'access arguments' => array('administration Open Media System'),
+    'file' => 'system.admin.inc',
+    'file path' => drupal_get_path('module', 'system')
+  );
+  
+
+  $items['admin/openmedia/support'] = array(
+    'title' => 'Utilities',
+    'description' => 'Various utility functions to help support and debug the Open Media Project tools.',
+    'page callback' => 'om_support_options',
+    'access arguments' => array('access administration pages'),
+    'type' => MENU_NORMAL_ITEM,
+   );
+
+  $items['admin/openmedia/support/health'] = array(
+    'title' => 'Media Mover File Inspector',
+    'description' => 'Looks at all files in the Media Mover system and checks for problems.',
+    'page callback' => 'om_support_media_mover_file_inspector',
+    'access arguments' => array('access administration pages'),
+    'type' => MENU_CALLBACK,
+   );
+
+  $items['admin/openmedia/support/files'] = array(
+    'title' => 'Drupal File Table Show Inspector',
+    'description' => 'Looks at all files in the Drupal Files table and checks for problems.',
+    'page callback' => 'om_support_file_analyzer',
+    'page arguments' => array(4),
+    'access arguments' => array('access administration pages'),
+    'type' => MENU_CALLBACK,
+   );
+
+  $items['admin/openmedia/support/files/detail'] = array(
+    'title' => 'Media Mover Node File Detail',
+    'description' => 'Looks at all the media mover files on a specific node and checks for problems.',
+    'page callback' => 'om_support_remove_duplicate_mm_files',
+    'page arguments' => array(5,6,7),
+    'access arguments' => array('access administration pages'),
+    'type' => MENU_CALLBACK,
+   );
+   
+   $items['support/stats'] = array(
+    'title' => 'Open Media System Public Stats',
+    'description' => 'Looks at all the media mover files on a specific node and checks for problems.',
+    'page callback' => 'om_support_stats',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+   );
+
+  return $items;
+}
+
+//*****
+// Documentation Related Functions
+//*****
+
+function om_localize_documentation($master_url) {
+  
+   $ch = curl_init();
+	
+   curl_setopt($ch, CURLOPT_URL, $master_url);
+   curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+	
+   $page = curl_exec($ch);
+   $page = strstr($page, '<!--START OM DOC-->');
+   //$page = strstr($page, '<div id="book-navigation', true); // Only with PHP 5.3.0
+   $page_parts = explode('<div id="book-navigation', $page);
+   $page = $page_parts[0];
+   $page = str_replace("/sites/default/files/handbooks/", "http://www.openmediaproject.org/sites/default/files/handbooks/", $page);
+   print $page;
+   if (user_access('administer nodes')) {
+      print '<div class="handbookalert">The source documentation shared with all Open Media System using locations for this handbook page can be edited at: <a href="' . $master_url . '">' . $master_url . '</a></div>';
+   }
+   curl_close($ch);
+}
+
+//*****
+// Reporting Related Functions
+//*****
+
+function om_support_stats() {
+
+	//THIS ENTIRE FUNCTION NEEDS TO BE GENERALIZED
+	$result = db_query("SELECT count(uid) as total FROM {users}");
+	$om_users = db_fetch_object($result);
+	
+	$output .=  $om_users->total . ' Registered Users (this includes users with a station membership and users who have registered on the website)<br />';
+	
+	//VOTING
+	
+	$result = db_query("SELECT count(vote_id) as total FROM {votingapi_vote} WHERE content_type = 'node'");
+	$om_votes = db_fetch_object($result);
+	
+	$result = db_query("SELECT COUNT(DISTINCT(uid)) as total FROM {votingapi_vote} WHERE content_type = 'node'");
+	$om_user_votes = db_fetch_object($result);
+	
+	$result = db_query("SELECT COUNT(DISTINCT(vote_source)) AS total FROM {votingapi_vote} WHERE uid = 0 AND  content_type = 'node'");
+	$om_anonymous_votes = db_fetch_object($result);
+	
+	$result = db_query("SELECT count(vote_id) as total FROM {votingapi_vote} WHERE value = 100 AND content_type = 'node'");
+	$om_100_percent = db_fetch_object($result);
+	
+	$om_100_percent_percent = round(($om_100_percent->total/$om_votes->total)*100);
+	
+	$result = db_query("SELECT count(vote_id) as total FROM {votingapi_vote} WHERE `value` = 100");
+	$om_100_percent = db_fetch_object($result);
+	
+	$om_100_percent_percent = round(($om_100_percent->total/$om_votes->total)*100);
+	
+	$output .=  $om_votes->total . ' ratings of videos to influence what airs have been made by ' . $om_user_votes->total . ' authenticated users and ' . $om_anonymous_votes->total . ' anonymous users.  ' . $om_100_percent_percent . '% of ratings are five stars.<br />';
+	
+	
+	$result = db_query("SELECT count(vid) as total FROM {node} WHERE type LIKE 'om_project'");
+	$om_projects = db_fetch_object($result);
+	
+	$output .=  $om_projects->total . ' Projects created by members<br />';
+	
+	$result = db_query("SELECT count(vid) as total FROM {node} WHERE type LIKE 'om_show'");
+	$om_shows = db_fetch_object($result);
+	
+	$result = db_query("SELECT count(vid) as total FROM {node} WHERE type LIKE 'merci_reservation'");
+	$om_reservations = db_fetch_object($result);
+	
+	$output .=  $om_reservations->total . ' Reservations made by members (Since January)<br />';
+	
+	$output .=  $om_shows->total . ' Shows in Archive <br />';
+	
+	$result = db_query(" SELECT sum( field_om_show_duration_value ) as duration_total
+	FROM content_type_om_show");
+	$duration = db_fetch_object($result);
+	
+	$output .=  round((($duration->duration_total / 60) / 60)) . ' hours in Archive <br />';
+	
+	$output .=  '<h3>Content Breakdown</h3>';
+	
+	$result = db_query("SELECT count(vid) as total FROM {content_field_om_locally_produced} WHERE field_om_locally_produced_value =1");
+	$om_locally_produced = db_fetch_object($result);
+	
+	$output .=  round( ($om_locally_produced->total / $om_shows->total)*100 ) . '% of content that is currently tagged as locally produced. This feature was just added in June, so it isn\'t an accurate representation of the archive.  There are a total of ' . $om_locally_produced->total . ' shows tagged as locally produced.<br />';
+	
+	
+	$result = db_query("SELECT count(vid) as total FROM {content_type_om_show} WHERE field_om_show_theme_nid > 0");
+	$om_themed = db_fetch_object($result);
+	
+	$om_themed_total = $om_themed->total;
+	
+	$output .= '<p>Total Shows with Timeslot Theme: ' . $om_themed_total . '<br />';
+	
+	$result = db_query("SELECT n.nid, title FROM {node} n JOIN {content_type_om_timeslot_theme} ct ON n.vid = ct.vid WHERE type = 'om_timeslot_theme' AND field_timeslot_pairing_disabled_value IS NULL OR type = 'om_timeslot_theme' AND field_timeslot_pairing_disabled_value = 0 ORDER BY title");
+ 
+  $count = 0;
+  $om_theme_details = array(); 
+  while ($om_theme = db_fetch_object($result)) {
+	  
+	  $om_theme_details_total = om_timeslot_scheduler_theme_stats($om_theme->nid, $date);
+	  $om_theme_details[$count]['#label'] = urlencode($om_theme->title) . ' (' . $om_theme_details_total . ')';
+	  $om_theme_details[$count]['#value'] = round(( $om_theme_details_total / $om_themed_total)*100);
+	  $count++;
+	}
+	
+	
+	$example = array(
+	  '#type'     => 'pie3D', // Display a 3D pie chart
+	  '#title'    => t('Content by Theme for Full Archive'), // Chart title
+	  '#height'  => '225',
+	  '#width' =>  '750',
+	  array($om_theme_details[0], $om_theme_details[1], $om_theme_details[2], $om_theme_details[3], $om_theme_details[4], $om_theme_details[5], $om_theme_details[6], $om_theme_details[7], $om_theme_details[8], $om_theme_details[9]),
+	);
+	$output .=  charts_chart($example) . '</p>';
+	
+//** Breakdown over last 6 months
+
+  $date = strtotime('-6 months');
+
+	$result = db_query("SELECT count(content_type_om_show.vid) as total FROM {content_type_om_show} JOIN {node} ON content_type_om_show.vid = node.vid WHERE field_om_show_theme_nid > 0 AND created > $date");
+	
+	$om_themed = db_fetch_object($result);
+	
+	$om_themed_total = $om_themed->total;
+	
+	$output .=  '<p>Total Shows with Timeslot Theme: ' . $om_themed_total . ' for last 6 months<br />';
+	
+	$result = db_query("SELECT n.nid, title FROM {node} n JOIN {content_type_om_timeslot_theme} ct ON n.vid = ct.vid WHERE type = 'om_timeslot_theme' AND field_timeslot_pairing_disabled_value IS NULL OR type = 'om_timeslot_theme' AND field_timeslot_pairing_disabled_value = 0 ORDER BY title");
+ 
+  $count = 0;
+  $om_theme_details = array(); 
+  while ($om_theme = db_fetch_object($result)) {
+	  
+	  $om_theme_details_total = om_timeslot_scheduler_theme_stats($om_theme->nid, $date);
+	  $om_theme_details[$count]['#label'] = urlencode($om_theme->title) . ' (' . $om_theme_details_total . ')';
+	  $om_theme_details[$count]['#value'] = round(( $om_theme_details_total / $om_themed_total)*100);
+	  $count++;
+	}
+	
+	
+	
+	$example = array(
+	  '#type'     => 'pie3D', // Display a 3D pie chart
+	  '#title'    => t('Content by Theme for Last 6 Months'), // Chart title
+	  '#height'  => '225',
+	  '#width' =>  '750',
+	  array($om_theme_details[0], $om_theme_details[1], $om_theme_details[2], $om_theme_details[3], $om_theme_details[4], $om_theme_details[5], $om_theme_details[6], $om_theme_details[7], $om_theme_details[8], $om_theme_details[9]),
+	);
+	$output .= charts_chart($example). '</p>';
+	
+	
+	
+	$startdate = strtotime('next Sunday');
+	$enddate = strtotime(date('F j Y', $startdate) .' + 7 days');
+	
+	$output .= '<p>Break down of Time allocated to Themes between '. date('F j', $startdate) . ' and ' . date('F j', $enddate) . '<br />';
+	
+		$result = db_query("SELECT n.nid, title FROM {node} n JOIN {content_type_om_timeslot_theme} ct ON n.vid = ct.vid WHERE type = 'om_timeslot_theme' AND field_timeslot_pairing_disabled_value IS NULL OR type = 'om_timeslot_theme' AND field_timeslot_pairing_disabled_value = 0 ORDER BY title");
+ 
+  $count = 0;
+  $om_theme_details = array(); 
+  while ($om_theme = db_fetch_object($result)) {
+	  $output .= om_timeslot_scheduler_event_duration($om_theme->nid, $startdate, $enddate);
+	}
+  
+  return $output;
+}
+
+//*****
+// Show Related Functions
+//*****
+
+function om_support_options() {
+  $output = '<h2>File System Health:</h2>';
+  $output = l('Media Mover File Health (this will take several minutes to load, be patient)', 'admin/openmedia/support/health');
+  $output .= "<br />";
+  $output .= l('Files Table File Health', 'admin/openmedia/support/files');
+  return $output;
+}
+
+function om_support_media_mover_file_inspector($type = 'media_mover') {
+  $missing = array();
+  $bad = array();
+  $good = array();
+  $storing = array();
+
+  $problem_nodes = array();
+  switch($type) {
+    case 'media_mover':
+      $result = db_query("SELECT * FROM {media_mover_files}");
+      while($stuff = db_fetch_array($result)) {
+         $node = node_load($stuff['nid']);
+         if(count($node->media_mover[4]) > 1) {
+           $problem_nodes[$stuff['nid']]['mpeg2_multiple'] = count($node->media_mover[4]);
+         } 
+         if(count($node->media_mover[5]) > 1) {
+           $problem_nodes[$stuff['nid']]['flash_multiple'] = count($node->media_mover[5]);
+         }
+         if(count($node->media_mover[6]) > 1) {
+           $problem_nodes[$stuff['nid']]['capture_multiple'] = count($node->media_mover[6]);
+         } 
+
+        if(!$stuff['complete_file'] && ($stuff['status'] == 0 || $stuff['status'] == 8)) {
+          $bad[] = $stuff;
+        }elseif(!$stuff['complete_file'] && $stuff['status'] == 5) {
+          $storing[] = $stuff;
+        }elseif($stuff['complete_file'] && !file_exists($stuff['complete_file'])) {
+          //dom_glue_reset_file($stuff['nid'], $stuff['mmfid'], $stuff['cid'], $stuff['fid']);
+          $missing[] = $stuff;
+        }else{
+          $good[] = $stuff;
+        }
+      }
+    break;
+  }
+
+  if(count($problem_nodes) > 0) {
+  $odd_even = 1;
+  $output = '<strong>'.count($problem_nodes).' duplicate media mover files:</strong>';
+  $output .= '<table>';
+  $output .= '<thead><th>Node</th><th>MPEG2(click for detail)</th><th>FLASH(click for detail)</th><th>CAPTURE(click for detail)</th></thead>';
+  foreach($problem_nodes as $nid => $info) {
+      if($odd_even&1) {
+        $row_class = 'odd';
+      }else {
+        $row_class = 'even';
+      }
+      $output .= '<tr class="'.$row_class.'">';
+      $output .= '<td valign="top">'.l($nid, 'node/'.$nid).'</td>';
+      $output .= '<td valign="top">'.l($info['mpeg2_multiple'], 'admin/openmedia/support/files/detail/'.$nid).'</td>';
+      $output .= '<td valign="top">'.l($info['flash_multiple'], 'admin/openmedia/support/files/detail/'.$nid).'</td>';
+      $output .= '<td valign="top">'.l($info['capture_multiple'], 'admin/openmedia/support/files/detail/'.$nid).'</td>';
+
+      $output .= '</tr>';
+      $odd_even++;
+  }
+  $output .= '</table>';
+  }else {
+    $output .= '<strong>Duplicate File Check Passed</strong> - Congrats, no duplicate media mover file configurations found.';
+  }
+
+
+  if(count($storing) > 0) {
+  $odd_even = 1;
+  $output .= '<br /><strong>'.count($storing).' files in storage state (it\'s ok for there to be some files here):</strong>';
+  $output .= '<table>';
+  $output .= '<thead><th>Harvest Path</th><th>Nid</th><th>Configuration ID</th><th>MMFid (Click for detail)</th></thead>';
+  foreach($storing as $file) {
+      if($odd_even&1) {
+        $row_class = 'odd';
+      }else {
+        $row_class = 'even';
+      }
+      $output .= '<tr class="'.$row_class.'">';
+      $output .= '<td valign="top">'.$file['harvest_file'].'</td>';
+      $output .= '<td valign="top">'.l($file['nid'], 'node/'.$file['nid']).'</td>';
+      $output .= '<td valign="top">'.$file['cid'].'</td>';
+      $output .= '<td valign="top">'.l($file['mmfid'], 'admin/openmedia/support/files/detail/'.$file['nid']).'</td>';
+      $output .= '</tr>';
+      $odd_even++;
+  }
+  $output .= '</table>';
+  }else{
+    $output .= '<br /><strong>Storage Check passed</strong>, no Media Mover file entries stuck in storage state.';
+  }
+
+  if(count($bad) > 0) {
+  $odd_even = 1;
+  $output .= '<strong>'.count($bad).' files with no completion state, with error or complete status:</strong>';
+  $output .= '<table>';
+  $output .= '<thead><th>Harvest Path</th><th>Nid</th><th>Configuration ID</th><th>MMFid (Click for detail)</th></thead>';
+  foreach($bad as $file) {
+      if($odd_even&1) {
+        $row_class = 'odd';
+      }else {
+        $row_class = 'even';
+      }
+      $output .= '<tr class="'.$row_class.'">';
+      $output .= '<td valign="top">'.$file['harvest_file'].'</td>';
+      $output .= '<td valign="top">'.l($file['nid'], 'node/'.$file['nid']).'</td>';
+      $output .= '<td valign="top">'.$file['cid'].'</td>';
+      $output .= '<td valign="top">'.l($file['mmfid'], 'admin/openmedia/support/files/detail/'.$file['nid']).'</td>';
+      $output .= '</tr>';
+      $odd_even++;
+  }
+  $output .= '</table>';
+  }else{
+    $output .= '<br /><strong>Error/Complete Status Check passed</strong>, no Media Mover file entries with no completion state, with error or complete status.';
+  }
+
+  if(count($missing) > 0) {
+  $odd_even = 1;
+  $output .= '<br /><strong>'.count($missing).' missing files:</strong>';
+  $output .= '<table>';
+  $output .= '<thead><th>Completion Path</th><th>Node</th><th>Configuration ID</th><th>MMFid (Click for detail)</th><th>FID</th></thead>';
+  foreach($missing as $file) {
+    if($odd_even&1) {
+      $row_class = 'odd';
+    }else {
+      $row_class = 'even';
+    }
+    $output .= '<tr class="'.$row_class.'">';
+    $output .= '<td valign="top">'.$file['complete_file'].'</td>';
+    $output .= '<td valign="top">'.l($file['nid'], 'node/'.$file['nid']).'</td>';
+      $output .= '<td valign="top">'.l($info['mpeg2_multiple'], 'admin/openmedia/support/files/detail/'.$nid).'</td>';
+    $output .= '<td valign="top">'.$file['cid'].'</td>';
+    $output .= '<td valign="top">'.l($file['mmfid'], 'admin/openmedia/support/files/detail/'.$file['nid']).'</td>';
+    $output .= '<td valign="top">'.$file['fid'].'</td>';
+    $output .= '</tr>';
+    $odd_even++;
+  }
+  $output .= '</table>';
+  }else {
+    $output .= '<br /><strong>Missing file check passed</strong>, no Media Mover file entries found with missing files.';
+  }
+  return $output;
+}
+
+function om_support_file_analyzer($action = 'report') {
+  $result = db_query("SELECT nid FROM content_type_om_show");
+  $missing_files = array();
+  while($stuff = db_fetch_array($result)) {
+      $node = node_load($stuff['nid']); 
+      if(!file_exists($node->field_om_show_mpeg2[0]['filepath'])) {
+        if(file_exists($node->media_mover[4][0]['complete_file'])) {
+          if(!$node->field_om_show_mpeg2[0]['filepath']) {
+            if($action == 'mm-to-cck') {
+              om_support_copy_mm_to_cck($node, 'mpeg2');
+              $missing_files[$node->nid]['mpeg2'] = '<strong>Empty File, Valid MFile [COPYING]</strong>';
+            }else{
+              $missing_files[$node->nid]['mpeg2'] = 'Empty File, Valid MFile';
+            }
+          }else{
+            $missing_files[$node->nid]['mpeg2'] = 'Invalid File, Valid MFile';
+          }
+        }else{
+          if(!$node->field_om_show_mpeg2[0]['filepath']) {
+            $missing_files[$node->nid]['mpeg2'] = 'Empty File';
+          }else{
+            $missing_files[$node->nid]['mpeg2'] = 'Invalid File';
+          }
+        }
+      }
+      if(!file_exists($node->field_om_show_flash[0]['filepath'])) {
+        if(file_exists($node->media_mover[5][0]['complete_file'])) {
+          if(!$node->field_om_show_flash[0]['filepath']) {
+            if($action == 'mm-to-cck') {
+              om_support_copy_mm_to_cck($node, 'flash');
+              $missing_files[$node->nid]['flash'] = '<strong>Empty File, Valid MFile [COPYING]</strong>';
+            }else{
+              $missing_files[$node->nid]['flash'] = 'Empty File, Valid MFile';
+            }
+          }else{
+            $missing_files[$node->nid]['flash'] = 'Invalid File, Valid MFile';
+          }
+        }else{
+          if(!$node->field_om_show_flash[0]['filepath']) {
+            $missing_files[$node->nid]['flash'] = 'Empty File';
+          }else{
+            $missing_files[$node->nid]['flash'] = 'Invalid File';
+          }
+        }
+      }
+      if(!file_exists($node->field_om_show_capture[0]['filepath'])) {
+        if(file_exists($node->media_mover[6][0]['complete_file'])) {
+          if(!$node->field_om_show_capture[0]['filepath']) {
+            if($action == 'mm-to-cck') {
+              om_support_copy_mm_to_cck($node, 'capture');
+              $missing_files[$node->nid]['capture'] = '<strong>Empty File, Valid MFile [COPYING]</strong>';
+            }else{
+              $missing_files[$node->nid]['capture'] = 'Empty File, Valid MFile';
+            }
+          }else{
+            $missing_files[$node->nid]['capture'] = 'Invalid File, Valid MFile';
+          }
+        }else{
+          if(!$node->field_om_show_flash[0]['filepath']) {
+            $missing_files[$node->nid]['capture'] = 'Empty File';
+          }else{
+            $missing_files[$node->nid]['capture'] = 'Invalid File';
+          }
+        }
+      }
+  }
+
+  $odd_even = 1;
+  $output .= '<strong>Utilities (be careful with these!):</strong><br />';
+  $output .= l('Update Empty CCK fields with Valid Media Mover File info', 'admin/openmedia/support/files/mm-to-cck');
+  $output .= '<br />';
+  $output .= l('Refresh File Table Report', 'admin/openmedia/support/files');
+  $output .= '<br /><strong>'.count($missing_files).' nodes with broken files:</strong>';
+  $output .= '<table>';
+  $output .= '<thead><th>Node</th><th>MPEG2</th><th>FLASH</th><th>CAPTURE</th></thead>';
+  foreach($missing_files as $nid => $info) {
+    if($odd_even&1) {
+      $row_class = 'odd';
+    }else {
+      $row_class = 'even';
+    }
+    $output .= '<tr class="'.$row_class.'">';
+    $output .= '<td valign="top">'.l($nid, 'node/'.$nid).'</td>';
+    $output .= '<td valign="top">'.$info['mpeg2'].'</td>';
+    $output .= '<td valign="top">'.$info['flash'].'</td>';
+    $output .= '<td valign="top">'.$info['capture'].'</td>';
+    $output .= '</tr>';
+    $odd_even++;
+  }
+  $output .= '</table>';
+  
+  return $output;
+}
+
+
+
+function om_support_remove_duplicate_mm_files($nid, $operation = 'report', $mmfid = '') {
+  $node = node_load($nid);
+
+  $odd_even = 1;
+  $output .= '<br /><h3>Media Mover File Information for Node '.$nid.'</h3>';
+  $output .= '<strong>Utility Functions(be careful with these!):</strong><br />';
+  $output .= l('Remove Missing, Inactive File Records', 'admin/openmedia/support/files/detail/'.$nid.'/remove-inactive-missing');
+  $output .= '<br />';
+  $output .= l('Remove Existing, Inactive File Records', 'admin/openmedia/support/files/detail/'.$nid.'/remove-inactive-existing');
+  $output .= '<br />';
+  $output .= l('Fix Missing FIDs', 'admin/openmedia/support/files/detail/'.$nid.'/fix-fids');
+  $output .= '<br />';
+  $output .= l('Return to this nodes detail page', 'admin/openmedia/support/files/detail/'.$nid);
+  $output .= '<br />';
+  $output .= l('Return to main Media Mover File Health (this will take several minutes to load, be patient)', 'admin/openmedia/support/health');
+  $output .= '<table valign="top">';
+  $output .= '<thead><th style="width: 500px;">FPATH</th><th>PROJ</th><th>CID</th><th>FID</th><th>MMFID</th><th>EXISTS?</th><th>ACTIVE?</th><th>STATUS</th></thead>';
+  
+  $file_types = $node->media_mover;
+  $inactive_missing = 0;
+  foreach($file_types as $file_type) {
+    foreach($file_type as $file) {
+      if($odd_even&1) {
+        $row_class = 'odd';
+      }else {
+        $row_class = 'even';
+      }
+      $output .= '<tr class="'.$row_class.'">';
+
+      $fix_storing_link = '';
+      if($file['cid'] == 4 && file_exists($node->field_om_show_mpeg2[0]['filepath']) && !file_exists($file['complete_file'])) {
+        $fix_storing_link = '<br />'.l('Copy CCK MPEG2 file info to Media Mover Table', 'admin/openmedia/support/files/detail/'.$file['nid'].'/cck-to-mm/'.$file['mmfid']);
+      }
+
+      if($operation == 'cck-to-mm' && $file['mmfid'] == $mmfid) {
+        om_support_cck_to_mm($file, $node->field_om_show_mpeg2[0]['filepath']);
+        $fix_storing_link = '<br /><strong>Updated MM MPEG2 field with CCK info</strong>';
+      }
+
+      if(file_exists($file['process_file']) && !file_exists($file['storage_file'])) {
+        $fix_storing_link .= '<br />'.l('Change status to Process Complete', 'admin/openmedia/support/files/detail/'.$file['nid'].'/set-proc-complete/'.$file['mmfid']);
+      }
+
+      $fix_storing_link .= '<br />'.l('Complete Lost Process File', 'admin/openmedia/support/files/detail/'.$file['nid'].'/fix-processing/'.$file['mmfid']);
+
+      if($operation == 'set-proc-complete' && $file['mmfid'] == $mmfid) {
+        om_support_mmfid_status($mmfid,4);
+        $fix_storing_link = '<br /><strong>Updated status to Process Complete</strong>';
+      }
+
+      if(file_exists($file['complete_file']) && $file['complete_file'] != $node->field_om_show_mpeg2[0]['filepath'] && $file['cid'] == 4) {
+        $fix_storing_link .= '<br />'.l('Make this file active', 'admin/openmedia/support/files/detail/'.$file['nid'].'/make-active/'.$file['mmfid']);
+      }
+      if($operation == 'make-active' && $file['mmfid'] == $mmfid) {
+        om_support_mm_file_activate($file);
+        $fix_storing_link = '<br /><strong>File set to active.</strong>';
+      }
+      if($operation == 'fix-processing') {
+        om_support_mm_fix_processing($mmfid);
+      }
+
+      if($operation == 'delete-file' && $file['mmfid'] == $mmfid) {
+        om_support_delete_mmfid($file);
+        $output .= '<td valign="top">'.$file['complete_file'].'<br /><strong>FILE DELETED</strong></td>';
+      }else{
+        $output .= '<td valign="top">'.
+          'H: '.$file['harvest_file'].'<br />'.
+          'P: '. $file['process_file'].'<br />'.
+          'S: '.$file['storage_file'].'<br />'.
+          'C: '.$file['complete_file'].'<br />'.
+          l('Remove Completely (file, directory entries, etc)', 'admin/openmedia/support/files/detail/'.$file['nid'].'/delete-file/'.$file['mmfid']).$fix_storing_link.'</td>';
+      }
+
+      $project = om_support_get_project($file['nid']);
+      if($project['nid'] && $operation != 'move-proj') {
+        $output .= '<td valign="top">'.$project['nid'].'|<a href="/admin/openmedia/support/files/detail/'.$file['nid'].'/move-proj/'.$file['mmfid'].'" alt="'.$project['title'].'">Move</a>'; 
+      }elseif($project['nid'] && $operation == 'move-proj' && $mmfid == $file['mmfid']) {
+       om_support_move_mmfid_to_project($file); 
+       $output .= '<td valign="top"><strong>'.$project['nid'].'|MOVED</strong></td>';
+      }elseif($project['nid'] && $operation == 'move-proj' && $mmfid != $file['mmfid']) {
+        $output .= '<td valign="top">'.$project['nid'].'|<a href="/admin/openmedia/support/files/detail/'.$file['nid'].'/move-proj/'.$file['mmfid'].'" alt="'.$project['title'].'">Move</a>'; 
+      }else{
+        $output .= '<td valign="top">NONE</td>';
+      }
+      $output .= '<td valign="top">'.$file['cid'].'</td>';
+      if($operation == 'fix-fids' && $file['fid'] == 0) {
+        $fid = om_support_fid_from_path($file['complete_file']);
+        db_query("UPDATE {media_mover_files} SET fid=%d WHERE mmfid=%d", $fid, $file['mmfid']);
+        $output .= '<td valign="top">UPDATED: '.$fid.'</td>';
+      }else {
+        $output .= '<td valign="top">'.$file['fid'].'</td>';
+      }
+
+      if($operation == 'delete-mmfid' && $mmfid != '' && $mmfid == $file['mmfid']) {
+        om_support_delete_mmfid_leave_files($mmfid);
+        $output .= '<td valign="top"><strong>'.$file['mmfid'].'-- DELETED</strong></td>';
+      }else{
+        $output .= '<td valign="top">'.$file['mmfid'].'|'.l('Delete', 'admin/openmedia/support/files/detail/'.$nid.'/delete-mmfid/'.$file['mmfid']).'</td>';
+      }
+
+      if(file_exists($file['complete_file'])) {
+        $output .= '<td valign="top">FILE EXISTS</td>';
+      }else {
+        $output .= '<td valign="top">MISSING</td>';
+      }
+
+      switch($file['cid']) {
+        case 4:
+          if($file['complete_file'] == $node->field_om_show_mpeg2[0]['filepath']) {
+            $output .= '<td valign="top">ACTIVE</td>';
+          }else {
+            if($operation == 'remove-inactive-missing' && !file_exists($file['complete_file'])) {
+              om_support_delete_mmfid($file);
+              $output .= '<td valign="top"><strong>INACTIVE -- DELETED</strong></td>';
+              $unactive_missing++;
+            }elseif($operation == 'remove-inactive-existing') {
+              om_support_delete_mmfid($file);
+              $output .= '<td valign="top"><strong>INACTIVE -- DELETED</strong></td>';
+              $inactive_missing++;
+            }else {
+              $output .= '<td valign="top">INACTIVE</td>';
+            }
+          }
+          break;
+
+        case 5:
+          if($file['complete_file'] == $node->field_om_show_flash[0]['filepath']) {
+            $output .= '<td valign="top">ACTIVE</td>';
+          }else {
+            if($operation == 'remove-inactive-missing' && !file_exists($file['complete_file'])) {
+              om_support_delete_mmfid($file);
+              $output .= '<td valign="top"><strong>INACTIVE -- DELETED</strong></td>';
+              $inactive_missing++;
+            }elseif($operation == 'remove-inactive-existing') {
+              om_support_delete_mmfid($file);
+              $output .= '<td valign="top"><strong>INACTIVE -- DELETED</strong></td>';
+              $inactive_missing++;
+            }else {
+              $output .= '<td valign="top">INACTIVE</td>';
+            }
+          }
+          break;
+
+        case 6:
+          if($file['complete_file'] == $node->field_om_show_capture[0]['filepath']) {
+            $output .= '<td valign="top">ACTIVE</td>';
+          }else {
+            if($operation == 'remove-inactive-missing' && !file_exists($file['complete_file'])) {
+              om_support_delete_mmfid($file);
+              $output .= '<td valign="top"><strong>INACTIVE -- DELETED</strong></td>';
+              $inactive_missing++;
+            }elseif($operation == 'remove-inactive-existing') {
+              om_support_delete_mmfid($file);
+              $output .= '<td valign="top"><strong>INACTIVE -- DELETED</strong></td>';
+              $inactive_missing++;
+            }else {
+              $output .= '<td valign="top">INACTIVE</td>';
+            }
+          }
+          break;
+      }
+
+      $output .= '<td valign="top">'.$file['status'].'</td>';
+      $output .= '</tr>';
+      
+      $odd_even++;
+    }
+  } 
+
+  $output .= '</table>';
+  if($inactive_missing > 0) {
+    $output .= '<strong>REMOVED '.$inactive_missing.' INACTIVE + MISSING File Records</strong>';
+  }
+  if($operation != 'report') {
+    om_support_empty_mm_cache();
+  }
+  return $output;
+}
+
+function om_support_delete_mmfid($mm_file_array) {
+  db_query("DELETE FROM {media_mover_files} WHERE mmfid = %d", $mm_file_array['mmfid']);
+  if($mm_file_array['complete_file']) { 
+    db_query("DELETE FROM {files} WHERE filepath = '%s'", $mm_file_array['complete_file']);
+    if(file_exists($mm_file_array['complete_file'])) {
+      unlink($mm_file_array['complete_file']); 
+    }
+  }
+}
+
+function om_support_fid_from_path($path) {
+  $fid = db_result(db_query("SELECT fid FROM files WHERE filepath = '%s'", $path));
+  return $fid;
+}
+
+function om_support_empty_mm_cache() {
+  db_query("TRUNCATE TABLE {cache_media_mover}");  
+}
+
+function om_support_empty_content_cache() {
+  db_query("TRUNCATE TABLE {cache_content}");  
+}
+
+function om_support_delete_mmfid_leave_files($mmfid) {
+  db_query("DELETE FROM {media_mover_files} WHERE mmfid = %d", $mmfid);
+}
+
+function om_support_get_project($nid) {
+  $group_nid = db_result(db_query("SELECT group_nid FROM og_ancestry WHERE nid = %d", $nid));
+  if($group_nid) {
+    $node = node_load($group_nid);
+    $group['nid'] = $group_nid;
+    $group['title'] = $node->title;
+    return $group;
+  }else{
+    $group['nid'] = FALSE;
+    return $group;
+  }
+}
+
+function om_support_move_mmfid_to_project($file) {
+  $node = node_load($file['nid']);
+  $group_title = $node->title;
+  require_once(drupal_get_path('module', 'transliteration') .'/transliteration.inc');
+  $group_directory = transliteration_clean_filename($group_title);
+  $fileinfo = pathinfo($file['complete_file']);
+  $basename = transliteration_clean_filename($fileinfo['basename']);
+  $destination_path = 'sites/default/files/archive_new/'.$group_directory.'/'.$basename;
+  //print 'Moving '.$file['complete_file'].', to: '.$destination_path;
+  om_support_move_file($file['complete_file'], $destination_path);
+}
+
+function om_support_load_mmfid($mmfid) {
+  $file = db_fetch_array(db_result("SELECT * FROM {media_mover_files} WHERE mmfid=%d", $mmfid));
+  return $file;
+}
+
+function om_support_move_file($source_path, $destination_path) {
+  db_query("UPDATE {media_mover_files} SET complete_file='%s' WHERE complete_file='%s'", $destination_path, $source_path);
+  db_query("UPDATE {files} SET filepath='%s' WHERE filepath='%s'", $destination_path, $source_path);
+  $destination_info = pathinfo($destination_path);
+  if(!is_dir($destination_info['dirname'])) {
+    mkdir($destination_info['dirname']);
+  }
+  rename($source_path, $destination_path);
+  om_support_empty_content_cache();
+}
+
+
+function om_support_cck_to_mm($file, $new_path) {
+  db_query("UPDATE {media_mover_files} SET complete_file='%s', storage_file='%s', status=8 WHERE mmfid=%d", $new_path, $new_path, $file['mmfid']);
+}
+
+function om_support_mmfid_status($mmfid, $status) {
+  db_query("UPDATE {media_mover_files} SET status=%d WHERE mmfid=%d", $status, $mmfid);
+}
+
+function om_support_mm_file_activate($file, $type = 'mpeg2') {
+  $node = node_load($file['nid']);
+  $pathinfo = pathinfo($file['complete_file']);
+  $node->field_om_show_mpeg2[0] = array(
+      'fid' => om_support_fid_from_path($file['complete_file']),
+      'list' => 0,
+      'data' => array(
+        'description' => '',
+        ),
+      'uid' => 0,
+      'filename' => $pathinfo['basename'],
+      'filepath' => $file['complete_file'],
+      'filemime' => 'video/mp2p',
+      'filesize' => filesize($file['complete_file']),
+      'status' => 1,
+      'timestamp' => time());
+
+  node_save($node);
+}
+
+
+function om_support_copy_mm_to_cck($node, $file_type) {
+  switch($file_type) {
+    case 'mpeg2':
+      $path = $node->media_mover[4][0]['complete_file'];
+      $pathinfo = pathinfo($path);
+      $fid = om_support_fid_from_path($path);
+      if(!$fid) {
+        db_query("INSERT INTO {files} (uid, filename, filepath, filemime, filesize, status, timestamp) VALUES (0, '%s', '%s', '%s', %d, 1, %d)", $pathinfo['basename'], $path, 'video/mp2p', filesize($path), time());
+        $fid=om_support_fid_from_path($path);
+      }
+      $file_array = array(
+        'fid' => $fid,
+        'list' => 0,
+        'data' => array(
+          'description' => '',
+          ),
+        'uid' => 0,
+        'filename' => $pathinfo['basename'],
+        'filepath' => $path,
+        'filemime' => 'video/mp2p',
+        'filesize' => filesize($path),
+        'status' => 1,
+        'timestamp' => time());
+
+    om_support_insert_cck_file($file_array, 'mpeg2', $node->vid);
+    break;
+
+    case 'flash':
+      $path = $node->media_mover[5][0]['complete_file'];
+      $pathinfo = pathinfo($path);
+      $fid = om_support_fid_from_path($path);
+      if(!$fid) {
+        db_query("INSERT INTO {files} (uid, filename, filepath, filemime, filesize, status, timestamp) VALUES (0, '%s', '%s', '%s', %d, 1, %d)", $pathinfo['basename'], $path, 'application/octet-stream', filesize($path), time());
+        $fid=om_support_fid_from_path($path);
+      }
+      $file_array = array(
+        'fid' => $fid,
+        'list' => 0,
+        'data' => array(
+          'description' => '',
+          ),
+        'uid' => 0,
+        'filename' => $pathinfo['basename'],
+        'filepath' => $path,
+        'filemime' => 'application/octet-stream',
+        'filesize' => filesize($path),
+        'status' => 1,
+        'timestamp' => time());
+
+    om_support_insert_cck_file($file_array, 'flash', $node->vid);
+    break;
+
+    case 'capture':
+      $path = $node->media_mover[6][0]['complete_file'];
+      $pathinfo = pathinfo($path);
+      $fid = om_support_fid_from_path($path);
+      if(!$fid) {
+        db_query("INSERT INTO {files} (uid, filename, filepath, filemime, filesize, status, timestamp) VALUES (0, '%s', '%s', '%s', %d, 1, %d)", $pathinfo['basename'], $path, 'image/jpeg', filesize($path), time());
+        $fid=om_support_fid_from_path($path);
+      }
+      $file_array = array(
+        'fid' => $fid,
+        'list' => 0,
+        'data' => array(
+          'description' => '',
+          ),
+        'uid' => 0,
+        'filename' => $pathinfo['basename'],
+        'filepath' => $path,
+        'filemime' => 'image/jpeg',
+        'filesize' => filesize($path),
+        'status' => 1,
+        'timestamp' => time());
+    om_support_insert_cck_file($file_array, 'capture', $node->vid);
+    break;
+  }
+}
+
+function om_support_insert_cck_file($file_array, $type, $vid) {
+  $data = 'a:1:{s:11:"description";s:0:"";}';
+  switch($type) {
+    case 'mpeg2':
+  db_query("UPDATE {content_type_om_show} SET field_om_show_mpeg2_fid=%d, field_om_show_mpeg2_list=%d, field_om_show_mpeg2_data='%s' WHERE vid=%d", $file_array['fid'], 0, $data, $vid);
+    break;
+    case 'flash':
+  db_query("UPDATE {content_type_om_show} SET field_om_show_flash_fid=%d, field_om_show_flash_list=%d, field_om_show_capture_data='%s' WHERE vid=%d", $file_array['fid'], 0, $data, $vid);
+    break;
+    case 'capture':
+  db_query("UPDATE {content_type_om_show} SET field_om_show_capture_fid=%d, field_om_show_capture_list=%d, field_om_show_capture_data='%s' WHERE vid=%d", $file_array['fid'], 0, $data, $vid);
+    break;
+  }
+}
+
+
+function om_support_capture_from_filepath($filepath) {
+  $filepath = "sites" . str_replace("^", "/", $filepath);
+  
+  //print $filepath;
+  
+  $flash_fid = om_support_fid_from_path($filepath);
+  
+  $capture_fid = db_result(db_query("SELECT field_om_show_capture_fid FROM {content_type_om_show} WHERE field_om_show_flash_fid=%d", $flash_fid));
+  $capture_path = db_result(db_query("SELECT filepath FROM {files} WHERE fid=%d", $capture_fid));
+  
+  $output = array( 'capturepath' => $capture_path, 'title' => $capture_path );
+  print json_encode( $output );
+}
+
+
+
+function om_support_mm_fix_processing($mmfid) {
+  $process_status = 4;
+  $harvest_file = db_result(db_query("SELECT harvest_file FROM media_mover_files WHERE mmfid = %d", $mmfid));
+  $harvest_file_info = pathinfo($harvest_file);
+  $process_file = 'sites/default/files/media_mover/ffmpeg/converted/1/'.$harvest_file_info['filename'].'.mpg';
+  db_query("UPDATE {media_mover_files} SET process_file = '%s', status = %d WHERE mmfid = %d", $process_file, $process_status, $mmfid);
+}
+
+function om_support_resave_shows() {
+  $db_result = db_query("SELECT nid FROM node WHERE type='om_show'");
+  $nids = array();
+  while($nid = db_fetch_array($db_result)) {
+    $nids[] = $nid['nid'];
+  }
+
+  $nid = '';
+  $counter = 0;
+  foreach($nids as $key => $nid) {
+    $node = node_load($nid);
+    node_save($node);
+    $counter++;
+  }
+
+  print 'Re-Saved '.$counter.' Shows';
+}
+
+function om_support_fix_durations() {
+  $db_result = db_query("SELECT *  FROM {content_type_om_show} JOIN {node} ON node.nid = content_type_om_show.nid WHERE field_om_show_duration_value < 1 AND field_om_show_mpeg2_fid IS NOT NULL");
+  $nids = array();
+  while($nid = db_fetch_array($db_result)) {
+    $nids[] = $nid['nid'];
+  }
+
+  $nid = '';
+  $counter = 0;
+  foreach($nids as $key => $nid) {
+    $node = node_load($nid);
+    node_save($node);
+    $counter++;
+  }
+
+  print 'Re-Saved '.$counter.' Shows';
+}
+
+
+
+function om_support_fix_lost_flvs() {
+  if($handle = opendir('sites/default/files')) {
+    while (false !== ($file = readdir($handle))) {
+      $path_parts = pathinfo('sites/default/files/'.$file);
+      if($path_parts['extension'] == 'flv') {
+        $mp2_filename = $path_parts['filename'].'.mp2';
+        $matching_fid = db_result(db_query("SELECT fid FROM files WHERE filename = '%s'", $mp2_filename));
+        $matching_nid = db_result(db_query('SELECT nid FROM content_type_om_show WHERE field_om_show_mpeg2_fid = %d', $matching_fid)); 
+        $node = node_load($matching_nid);
+        $flash_fid = db_result(db_query("SELECT fid FROM files WHERE filename = '%s'", $file));
+        if(!$node->field_om_show_flash[0] && $flash_fid) {
+          $file_object = field_file_load($flash_fid);
+          $file_object['data'] = array('description' => '');
+          $file_object['list'] = $configuration['field_save_list'];
+          $node->field_om_show_flash[0] = $file_object;
+          node_save($node);
+        }
+      }
+      $flash_fid = NULL;
+      $matching_fid = NULL;
+      $matching_nid = NULL;
+    }
+  }
+}
+
+function om_support_deserialize() {
+  $result = db_query("SELECT * FROM media_mover_files WHERE nid=%d", 63431);
+  while($mm_row = db_fetch_array($result)) {
+    print "<pre>";
+    print_r($mm_row);
+    print "</pre>";
+    
+    $stuff = unserialize($mm_row['data']);
+    print '<pre>';
+    print_r($stuff);
+    print '</pre>';
+  }
+}
+
+function om_support_resolve_originals() {
+  $result = db_query("SELECT nid FROM content_type_om_show WHERE field_om_show_original_fid IS NOT NULL AND field_om_show_mpeg2_fid IS NOT NULL");
+  $counter = 0;
+  while($show_node = db_fetch_array($result)) {
+    $node = node_load($show_node['nid']);
+    if($node->field_om_show_original[0]['filepath'] && $node->field_om_show_mpeg2[0]['filepath']) {      
+      if(file_exists($node->field_om_show_mpeg2[0]['filepath'])) {
+				//delete the original!
+				//$fid = $node->field_om_show_original[0]['fid'];
+				//$field_name = 'field_om_show_original';
+				//db_query('DELETE FROM {files} WHERE fid = %d', $fid);
+				//mm_remove_clear_cck_field($field_name, $node->nid);
+				$counter++;
+        print '<br />'.$counter.': '.$node->field_om_show_original[0]['filepath'].' TO BE DELETED';
+      }
+    }
+  }
+}
+
+/**
+ ** Populates the media_mover_files table based on default OMP show fields
+ **/
+function om_support_build_media_mover_files() {
+  $result = db_query("SELECT * FROM {node} WHERE type='om_show'");
+  $show_counter = 0;
+  $mm_mpeg_counter = 0;
+  $mm_flash_counter = 0;
+  $mm_capture_counter = 0;
+    
+  while($show_node = db_fetch_array($result)) {
+	  $show_counter++;
+	  $node = NULL;
+	  $node = node_load($show_node['nid']);
+	  $mpeg = NULL;
+	  $flash = NULL;
+	  $capture = NULL;
+	  
+	  if($node->field_om_show_mpeg2[0]['fid'] && $node->field_om_show_mpeg2[0]['fid'] != 0) {
+		  $mpeg = array(
+		  	'nid' => $node->nid,
+		  	'fid' => $node->media_mover[4][0]['fid'],
+		  	'cid' => 4,
+		  	'harvest_file' => $node->media_mover[4][0]['harvest_file'],
+		  	'process_file' => $node->media_mover[4][0]['process_file'],
+		  	'storage_file' => $node->field_om_show_mpeg2[0]['filepath'],
+		  	'complete_file' => $node->field_om_show_mpeg2[0]['filepath'],
+		  	'status' => 8,
+		  	'date' => $node->field_om_show_mpeg2[0]['timestamp'],
+		  	'data' => serialize(array(
+		  		'harvest_file' => $node->media_mover[4][0]['harvest_file'],
+		  		'nid' => $node->nid,
+		  		'fid' => $node->field_om_show_mpeg2[0]['fid'],
+		  	)),
+		  );
+	  }
+	
+	  if($node->field_om_show_flash[0]['fid'] && $node->field_om_show_flash[0]['fid'] != 0 && $node->field_om_show_mpeg2[0]['fid'] != 0) {
+		  $flash = array(
+		  	'nid' => $node->nid,
+		  	'fid' => $node->field_om_show_mpeg2[0]['fid'],
+		  	'cid' => 5,
+		  	'harvest_file' => $node->field_om_show_mpeg2[0]['filepath'],
+		  	'process_file' => $node->media_mover[5][0]['process_file'],
+		  	'storage_file' => $node->field_om_show_flash[0]['filepath'],
+		  	'complete_file' => $node->field_om_show_flash[0]['filepath'],
+		  	'status' => 8,
+		  	'date' => $node->field_om_show_flash[0]['timestamp'],
+		  	'data' => serialize(array(
+		  		'harvest_file' => $node->field_om_show_mpeg2[0]['filepath'],
+		  		'nid' => $node->nid,
+		  		'fid' => $node->field_om_show_flash[0]['fid'],
+		  	)),
+		  );
+	  }
+	
+	  if($node->field_om_show_capture[0]['fid'] && $node->field_om_show_capture[0]['fid'] != 0 && $node->field_om_show_mpeg2[0]['fid'] != 0) {
+		  $capture = array(
+		  	'nid' => $node->nid,
+		  	'fid' => $node->field_om_show_mpeg2[0]['fid'],
+		  	'cid' => 6,
+		  	'harvest_file' => $node->field_om_show_mpeg2[0]['filepath'],
+		  	'process_file' => $node->media_mover[6][0]['process_file'],
+		  	'storage_file' => $node->field_om_show_capture[0]['filepath'],
+		  	'complete_file' => $node->field_om_show_capture[0]['filepath'],
+		  	'status' => 8,
+		  	'date' => $node->field_om_show_capture[0]['timestamp'],
+		  	'data' => serialize(array(
+		  		'harvest_file' => $node->field_om_show_mpeg2[0]['filepath'],
+		  		'nid' => $node->nid,
+		  		'fid' => $node->field_om_show_capture[0]['fid'],
+		  	)),
+		  );
+	  }
+	
+	  if($mpeg || $flash || $capture) {
+	    if($mpeg) {
+	      $mm_mpeg_counter++;
+	      db_query("INSERT INTO media_mover_files (nid,fid,cid,harvest_file,process_file,storage_file,complete_file,status,date,data) VALUES (%d,%d,%d,'%s','%s','%s','%s',%d,%d,'%s')",$mpeg['nid'],$mpeg['fid'],$mpeg['cid'],$mpeg['harvest_file'],$mpeg['process_file'],$mpeg['storage_file'],$mpeg['complete_file'],$mpeg['status'],$mpeg['date'],$mpeg['data']);
+	    }
+	    
+	    if($flash) {
+	      $mm_flash_counter++;
+	      db_query("INSERT INTO media_mover_files (nid,fid,cid,harvest_file,process_file,storage_file,complete_file,status,date,data) VALUES (%d,%d,%d,'%s','%s','%s','%s',%d,%d,'%s')",$flash['nid'],$flash['fid'],$flash['cid'],$flash['harvest_file'],$flash['process_file'],$flash['storage_file'],$flash['complete_file'],$flash['status'],$flash['date'],$flash['data']);
+	    }
+	    
+	    if($capture) {
+	      $mm_capture_counter++;
+	      db_query("INSERT INTO media_mover_files (nid,fid,cid,harvest_file,process_file,storage_file,complete_file,status,date,data) VALUES (%d,%d,%d,'%s','%s','%s','%s',%d,%d,'%s')",$capture['nid'],$capture['fid'],$capture['cid'],$capture['harvest_file'],$capture['process_file'],$capture['storage_file'],$capture['complete_file'],$capture['status'],$capture['date'],$capture['data']);    
+	    }
+	  }
+  }
+  
+  print '<strong>RESULTS:</strong><br />';
+  print '<strong>Shows Processed:</strong>'.$show_counter.'<br />';
+  print '<strong>MPEG file records generated:</strong>'.$mm_mpeg_counter.'<br />';
+  print '<strong>Flash file records generated:</strong>'.$mm_flash_counter.'<br />';
+  print '<strong>Capture file records generated:</strong>'.$mm_capture_counter.'<br />';
+}
