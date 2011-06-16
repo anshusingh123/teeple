@@ -142,6 +142,7 @@ function tvchat_service_upload_contacts($contacts_json) {
   //
   module_load_include('inc', 'user_relationship_service');
   module_load_include('inc', 'user_service');
+  module_load_include('inc', 'user_tvchat_service');
 
   // get user's contacts 
   // 
@@ -150,10 +151,14 @@ function tvchat_service_upload_contacts($contacts_json) {
   try {
     $fr_list = array();
 
-    // $contacts_list = json_decode($contacts_json);
-    // $contacts_array = (array)$contacts_list->data;
-    $contacts_array = (array)json_decode($contacts_json);
-    $contacts_array =  array_unique($contacts_array);
+    $contacts_array = array();
+
+    // $contacts_array = $contacts_json;
+    if (is_array($contacts_json)) {
+        $contacts_array = array_unique($contacts_json);
+    } else {
+        $contacts_array = array_unique(json_decode($contacts_json, TRUE));
+    }
 
     // make phone number list for db query
     // 
@@ -217,6 +222,7 @@ function tvchat_service_upload_contacts($contacts_json) {
 
     $ret_array = array();
     foreach ($friends_phone_new_list as $new_phone_no) {
+
         $ret_array = user_tvchat_service_signup($new_phone_no, $new_phone_no.'@teeple.co.kr', $new_phone_no, null, null, null, 0);
         user_relationship_service_request("1", $ret_array['uid'], 'Friend');
 

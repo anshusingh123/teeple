@@ -99,7 +99,7 @@ function json_load() {
 function drupal_parse_json($v) {
   // PHP 5 only
   if (function_exists('json_decode')) {
-    watchdog('json parser', json_decode($v,TRUE));
+    watchdog('before json parsing', $v);
     return json_decode($v,TRUE);  // bhtak: add 'TRUE' parameter to convert to array
   }
   if ($v{0} == '"') {

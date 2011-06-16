@@ -17,15 +17,10 @@
  *   Unique identifier for the comment (cid) or FALSE if there was a problem.
  */
 function comment_service_save($comment) {
-//  watchdog( 'comment', print_r( $comment, TRUE));
+  watchdog( 'comment', print_r( $comment, TRUE));
 
   if (!is_object($comment)) {
-	  if (function_exists('json_decode')) {
-		  $comment = json_decode($comment);
-		}
-		else {
-			$comment = (object) $comment;
-		}
+    $comment = (object) $comment;
   }
 
   // If the submitted comment does not contain a uid, set it to anonymous.
