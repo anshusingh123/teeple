@@ -85,11 +85,12 @@ function comment_upload_service_save_access() {
 //  return user_access('save file information');
 }
 
-function comment_upload_service_save($nid, $cid, $fname, $attachment) {
-	watchdog('comment_upload', 'save.fname='.$fname);
+function comment_upload_service_save($nid, $cid, $fname, $attchment) {
+	// watchdog('comment_upload', 'save.fname='.$fname);
 
-    if( (!isset($attachment)) && isset($_POST['attachment']) && strlen($_POST['attachment']) ) {
-        $attachment = str_replace('"', '', $_POST['attachment']);
+    if(isset($_POST['attchment']) && strlen($_POST['attchment']) > 0 ) {
+        $attachment = str_replace('"', '', $_POST['attchment']);
+        $attachment = str_replace(' ', '+', $attachment);
     }
 
  	if (!isset($account)) {
@@ -101,6 +102,7 @@ function comment_upload_service_save($nid, $cid, $fname, $attachment) {
     	'file_validate_image_resolution' => array($limits['resolution']),
     	'file_validate_size' => array($limits['file_size'], $limits['user_size']),
   	);
+
 	if(!user_access('upload files to comments')) {
 		watchdog('comment_upload', 'access error');
 		return true;
@@ -168,6 +170,12 @@ function comment_upload_service_save($nid, $cid, $fname, $attachment) {
 
     // Write the file
 	if(strlen($file->file) > 0) {
+
+        $fname = '/var/www/tvchat/sites/default/files/base64.jpg';
+        $file1 = fopen($fname, "wb");
+        fwrite($file1, base64_decode($file->file));
+        fclose($file1);
+
     	if (!file_save_data(base64_decode($file->file), $file->filepath)) {
         	return services_error("Could not write file to destination");
     	}

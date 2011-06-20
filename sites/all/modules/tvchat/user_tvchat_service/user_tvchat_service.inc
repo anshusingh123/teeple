@@ -111,58 +111,38 @@ function _user_account_update($email=null, $fname=null, $picture=null) {
 
   $account = user_load($user->uid);
 
-  if (is_object($account)) {
-    $account = (array)$account;
-  }
-
-  if (isset($email) && !empty($email)) {
-    $account['mail'] = $email;
-  }
+  if (is_object($account)) { $update = (array)$account; } 
+  if (isset($email) && !empty($email)) { $update['mail'] = $email; }
 
   // Load the required includes for saving profile information
   // with drupal_execute().
   module_load_include('inc', 'user', 'user.pages');
   module_load_include('inc', 'tvchat');
 
-  $form = array();
-  $form_state = array();
+  $edit = array();
   $category = 'account';
 
   $list = Array('name', 'mail');
-  foreach( $list as $key) {
-    if (isset($account[$key])) {
-        $form_state['values'][$key] = $account[$key];
+  foreach($list as $key => $value) {
+    if (isset($update[$value])) {
+        $edit[$value] = $update[$value];
     }
   }
 
-  // user picture manipulation
-  // 
-  $form_state['values']['op'] = 'Save';
-  $form_state['values']['_category'] = $category;
-  $form_state['values']['_account'] = $account;
+  if ($category == 'account') { $ret = user_save($account, $edit, $category); }
 
-  if ($category == 'account') {
-    $ret = drupal_execute('user_profile_form', $form_state, (object)$account, $category);
+  if (isset($fname) && isset($picture)) {
+    $file = _user_tvchat_validate_picture($fname,$picture, $user->uid);
 
-  } 
-
-  // Error if needed.
-  if ($errors = form_get_errors()) {
-    return services_error(implode("\n", $errors), 401);
-  }
-  else {
-
-    if (isset($fname) && isset($picture)) {
-
-        if(!isset($file)) {
-            return services_error(t('User Picture Save Error'), 405);
-        }
-        $info = image_get_info($file->filepath);            
-        $query = sprintf("picture = '%s'", variable_get('user_picture_path','pictures').'/picture-'.$form_state['user']->uid.'.'.$info['extension']);                   db_query ("UPDATE {users} SET $query WHERE uid = %d", $form_state['user']->uid);
-
+    if(!isset($file)) {
+        return services_error(t('User Picture Save Error'), 405);
     }
-    return $account->uid;
+    $info = image_get_info($file->filepath);
+    $query = sprintf("picture = '%s'", variable_get('user_picture_path','pictures').'/picture-'.$form_state['user']->uid.'.'.$info['extension']);                   db_query ("UPDATE {users} SET $query WHERE uid = %d", $form_state['user']->uid);
   }
+
+  return $account->uid;
+
 }
 
 function _user_tvchat_validate_picture($fname, $attachment, $uid) {
@@ -412,8 +392,11 @@ function user_tvchat_service_signup($nick, $email, $phone_number, $fname, $pictu
 //
 function user_tvchat_service_update($nick=null, $todayMessage=null, $fname=null, $picture=null, $message_alarm=null, $tvshow_alarm=null, $fb_id=null, $token_APNS=null, $phone_number=null, $email=null) {
 
-  if( (!isset($picture)) && isset($_POST['picture']) && strlen($_POST['picture']) ) {
+  global $base_url;
+
+  if(isset($_POST['picture']) && (strlen($_POST['picture'])>0) ) {
     $picture = str_replace('"', '', $_POST['picture']);
+    $picture = str_replace(' ', '+', $picture);
   }
 
   global $user;
@@ -444,6 +427,7 @@ function user_tvchat_service_update($nick=null, $todayMessage=null, $fname=null,
   profile_save_profile($edit, $account, 'Personal information');
 
   $account = user_load($user->uid);
+  $account->picture = $base_url.'/'.$account->picture;
 
   return $account;
 }

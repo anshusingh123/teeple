@@ -21,9 +21,9 @@ function comment_tvchat_service_service() {
     // comment.delete
     array(
       '#method'   => 'comment.delete',
-      '#callback' => 'comment_service_delete',
+      '#callback' => 'comment_tvchat_service_delete',
       '#access arguments'  => array('access comments from remote'),
-      '#file'     => array('file' => 'inc', 'module' => 'comment_service', 'file name' => 'comment_service_tvchat'),
+      '#file'     => array('file' => 'inc', 'module' => 'comment_tvchat_service', 'file name' => 'comment_tvchat_service'),
       '#args'      => array(
         array(
           '#name'         => 'cid',

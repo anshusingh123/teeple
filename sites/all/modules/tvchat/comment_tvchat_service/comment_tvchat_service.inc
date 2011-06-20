@@ -5,7 +5,7 @@
  * @file
  *  Link commenting functionality to services module.
  */
-function comment_service_delete($cid) {
+function comment_tvchat_service_delete($cid) {
   module_load_include('inc', 'comment', 'comment.admin');
 
   global $user;

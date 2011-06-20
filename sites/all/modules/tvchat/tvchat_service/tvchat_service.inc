@@ -237,7 +237,7 @@ function tvchat_service_upload_contacts($contacts_json) {
   }
 }
 
-function tvchat_service_audience_list($showId,$friend_flag=0,$offset,$limit) {
+function tvchat_service_audience_list($showId,$friend_flag=0,$offset=0,$limit=0) {
 
   try{
 
