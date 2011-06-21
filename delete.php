@@ -9,6 +9,8 @@
 include_once './includes/bootstrap.inc';
 drupal_bootstrap(DRUPAL_BOOTSTRAP_FULL);
 
+module_load_include('inc', 'comment', 'comment.admin');
+
 if ($_GET['type'] == 'time_table' || $_GET['type'] == 'all') {
     $query = db_query("SELECT n.nid FROM {node} n WHERE n.type = 'time_table'");
     while ($n = db_fetch_object($query)) {
