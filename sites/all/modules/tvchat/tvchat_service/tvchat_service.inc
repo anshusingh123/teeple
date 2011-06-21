@@ -189,6 +189,7 @@ function tvchat_service_upload_contacts($contacts_json) {
         $phone_name_list[$element->value]['uid'] = $element->uid;
         $phone_name_list[$element->value]['exist'] = 'yes';
     }
+
     $query_friends_uid_list = implode("','", $friends_uid_list);
 
     // if friend's request already exist 
@@ -230,7 +231,12 @@ function tvchat_service_upload_contacts($contacts_json) {
         $phone_name_list[$new_phone_no]['exist'] = 'no';
     }
 
-    return drupal_to_js($phone_name_list);
+    $ret_contacts = array();
+    foreach ($phone_name_list as $phone_element) {
+        $ret_contatcs[] = (object)$phone_element;
+    }
+
+    return drupal_to_js($ret_contacts);
 
   } catch (Exception $ex) {
     return services_error(t('Error listing relationship: @msg', array('@msg' => $ex->getMessage())));
@@ -238,12 +244,9 @@ function tvchat_service_upload_contacts($contacts_json) {
 }
 
 function tvchat_service_audience_list($showId,$friend_flag=0,$offset=0,$limit=0) {
-
   try{
-
     global $user;
-    global $base_root;
-    global $base_path;
+    global $base_url;
 
     $friends_uid_list = tvchat_friends_uid_list();
 
@@ -271,6 +274,7 @@ function tvchat_service_audience_list($showId,$friend_flag=0,$offset=0,$limit=0)
     }
 
     $ret_array = array();
+    $list_keys = array();
     $ret_element = array();
     $results = db_query($_query);
 
@@ -283,7 +287,7 @@ function tvchat_service_audience_list($showId,$friend_flag=0,$offset=0,$limit=0)
 
         // user's action should be unique
         // 
-        if(!array_key_exists($element['uid'], $ret_array)) {
+        if(!array_key_exists($element['uid'], $list_keys)) {
 
           if ($index <= $offset) {
               $index++;
@@ -294,24 +298,16 @@ function tvchat_service_audience_list($showId,$friend_flag=0,$offset=0,$limit=0)
           $result = db_result(db_query($_query));
           $element['loginStatus'] = $result > 0 ? TRUE:FALSE;
 
-
-          if (isset($element['userPicture']) && (strlen($element['userPicture']) > 0) ) {
-              $element['userPicture'] = $base_root.$base_path.$element['userPicture'];
+          if(isset($element['userPicture']) && (strlen($element['userPicture']) > 0)) {
+              $element['userPicture'] = $base_url.'/'.$element['userPicture'];
           }
-
-          $element['userPicture'] = 
-
-          $ret_array[$element['uid']] = $element;
-
+          $list_keys[$element['uid']] = 'FOUND';
+          $ret_array[] = (object)$element;
           $found++;
         }
-
-        if ($found == $limit) { 
-            break; 
-        }
-
-    }
-    return $ret_array;
+        if ($found == $limit) { break; }
+  }
+  return $ret_array;
 
   } catch (Exception $ex) {
     return services_errror(t('Error getting friend_list: $msg', array('@msg' => $ex->getMessage())));
