@@ -84,7 +84,7 @@ function duplicate_check(){
   $_query = "SELECT title FROM node WHERE type = 'tvshow' GROUP BY title HAVING COUNT(title) > 1";
   $result = db_query($_query);
 
-  while($node = db_fetch_object($result) {
+  while($node = db_fetch_object($result)) {
     $node->status = 0;
     node_save($node);
   }

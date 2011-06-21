@@ -233,10 +233,9 @@ function tvchat_service_upload_contacts($contacts_json) {
 
     $ret_contacts = array();
     foreach ($phone_name_list as $phone_element) {
-        $ret_contatcs[] = (object)$phone_element;
+        $ret_contacts[] = (object)$phone_element;
     }
-
-    return drupal_to_js($ret_contacts);
+    return $ret_contacts;
 
   } catch (Exception $ex) {
     return services_error(t('Error listing relationship: @msg', array('@msg' => $ex->getMessage())));
