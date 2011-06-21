@@ -259,7 +259,7 @@ function user_tvchat_service_changePassword($newPassword, $uid=0) {
  * @return
  *   The UID of the user whose information was updated.
  */
-function user_tvchat_service_signup($nick, $email, $phone_number, $fname, $picture, $token_APNS=null, $status=1) {
+function user_tvchat_service_signup($nick, $email, $phone_number, $fname=null, $picture=null, $token_APNS=null, $status=1) {
 
   if( (!isset($picture)) && isset($_POST['picture']) && strlen($_POST['picture']) ) {
       $picture = str_replace('"', '', $_POST['picture']);
@@ -297,8 +297,8 @@ function user_tvchat_service_signup($nick, $email, $phone_number, $fname, $pictu
 
     $message = array( 'to' => $email_to, 'subject'=> $subject, 'body' => $body);
     drupal_mail_send($message);
-    // 
 
+    // 
     $ret_array['uid'] = $user->uid;
     $ret_array['name'] = $user->name;
     $ret_array['pass'] = null;
@@ -372,7 +372,9 @@ function user_tvchat_service_signup($nick, $email, $phone_number, $fname, $pictu
       $ret_array['uid'] = $user->uid;
       $ret_array['name'] = $user->name;
       $ret_array['pass'] = $account_tmp->pass;
-      $ret_array['jid'] = $user->profile_jid;
+
+      // $ret_array['jid'] = $user->profile_jid;
+      $ret_array['jid'] = $user->uid;
   }
 
   // profile update ('Personal information' category)
