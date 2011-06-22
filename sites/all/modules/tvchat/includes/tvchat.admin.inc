@@ -144,6 +144,15 @@ function tvchat_config_form()
 		'#description' => t('편성표가 저장되는 장소이다.'),
   );
 
+  $form['environ']['max_top_show'] = array(
+        '#type' => 'textfield',
+		'#title' => t('인기 프로그램 수'),
+		'#size' => 5,
+		'#maxlength' => 3,
+		'#default_value' => 5,
+		'#description' => t('매일 변경되는 인기 프로그램의 갯수'),
+  );
+
   $form['environ']['url_intro_shorten'] = array(
     '#type' => 'textfield',
 		'#title' => t('Introduction Page URL (shorten)'),
@@ -238,6 +247,7 @@ function tvchat_config_form_submit( $form, &$form_state)
 		'apns_request_url'  => $form_state['values']['apns_request_url'],
 		'xmpp_send_cmd'     => $form_state['values']['xmpp_send_cmd'],
 		'url_intro_shorten' => $form_state['values']['url_intro_shorten'],
+		'max_top_show'      => $form_state['values']['max_top_show'],
 		'cmp_usr_id'        => $form_state['values']['cmp_usr_id'],
 		'snd_phn_id'        => $form_state['values']['snd_phn_id'],
 		'callback'          => $form_state['values']['callback'],
@@ -295,6 +305,10 @@ function _tvchat_update( $config)
                 if (isset($value)) { variable_set($key, $value); }
                 break;
             case 'url_intro_shorten':
+                if (isset($value)) { variable_set($key, $value); }
+                break;
+
+            case 'max_top_show':
                 if (isset($value)) { variable_set($key, $value); }
                 break;
 

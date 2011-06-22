@@ -178,33 +178,57 @@ function tvchat_get_flagged_node($flag_name, $uid) {
 	return $nodes;
 }	
 
-function tvchat_calculate_ranking($table, $timestamp_from, $timestamp_to) {
-
-  // get date from timestamp_from
-  $target_date = date('Ymd', $timestamp_from);
-
-  $array_operation = array();
-  $array_operation['tvshow'] = array('Commnet: tvshow', 'Flag Check In', 'Flag FavoriteTVShow');
-  $array_operation['issue'] = array('Comment: issue');
+function _calculate_tvshow($table, $array_operation, $timstamp_from, $timestamp_to, $target_date, $timestamp) {
 
   // calculate for tvshow
   //
-  $_query = sprintf("select entity_id, sum(points) points FROM userpoints_txn WHERE operation in ('%s') and time_stamp between %d and %d Group By entity_id", implode("','", $array_operation['tvshow']), $timestamp_from , $timestamp_to);
-
+  $_query = sprintf("select entity_id, sum(points) points FROM userpoints_txn WHERE operation in ('%s') and time_stamp between %d and %d Group By entity_id HAVING points > 0", implode("','", $array_operation['tvshow']), $timestamp_from , $timestamp_to);
   $query = db_query($_query);
 
+  $max_top_show = variable_get('max_top_show', 5);
+
+  if( $table = 'tvchat_ranking_weekly') {
+      $num_rows = db_affected_rows();
+      while($num_rows < $max_top_show) {
+          $timestamp_from = $timestamp_from - 86400 * 7;
+          $_query = sprintf("select entity_id, sum(points) points FROM userpoints_txn WHERE operation in ('%s') and time_stamp between %d and %d Group By entity_id HAVING points > 0", implode("','", $array_operation['tvshow']), $timestamp_from , $timestamp_to);
+          $query = db_query($_query);
+          $num_rows = db_affected_rows();
+      }
+  }
+
+  $count = 0;
   while($element = db_fetch_object($query)) {
     $node = node_load($element->entity_id);
 
     if (isset($node)) {
+
+      if( ($table=='tvchat_ranking_weekly')&&((++$count)>($max_top_show))) {
+        break;
+      } 
+
       if (isset($node->field_genre[0]['value'])) {
-        $_query = sprintf("INSERT INTO {%s} (entity_type, entity_nid, entity_taxonomy, points, target_date) VALUES ('%s', %d, %d, %d, %d)", $table, 'tvshow', $element->entity_id, $node->field_genre[0]['value'], $element->points, $target_date);
+          $genre = $node->field_genre[0]['value'];
       } else {
-        $_query = sprintf("INSERT INTO {%s} (entity_type, entity_nid, entity_taxonomy, points, target_date) VALUES ('%s', %d, %d, %d, %d)", $table, 'tvshow', $element->entity_id, 0, $element->points, $target_date);
+          $genre = 0;
       }
-      db_query($_query);
+
+      $ranking_element = array(
+        'entity_type'       => 'tvshow',
+        'entity_nid'        =>  $element->entity_id,
+        'entity_taxonomy'   => $genre,
+        'points'            => $element->points,
+        'target_date'       => $target_date,
+        'timestamp'         => $timestamp
+      );
+
+      drupal_write_record($table, $ranking_element);
+
     }
   }
+}
+
+function _calculate_isse($table, $timestamp_from, $timestamp_to) {
 
   // calculate for issue
   //
@@ -215,9 +239,21 @@ function tvchat_calculate_ranking($table, $timestamp_from, $timestamp_to) {
     $node = node_load($element->entity_id);
 
     if (isset($node)) {
-      db_query("INSERT INTO {%s} (entity_type, entity_nid, entity_taxonomy, points, target_date) VALUES ('%s', %d, %d, %d, %d)", $table, 'issue', $element->entity_id, 0, $element->points, $target_date);
+      $ranking_element = array(
+        'entity_type'       => 'issue',
+        'entity_nid'        => $element->entity_id,
+        'entity_taxonomy'   => 0,
+        'points'            => $element->points,
+        'target_date'       => $target_date,
+        'timestamp'         => $timestamp
+      );
+      drupal_write_record($table, $ranking_element);
+
     }
   }
+}
+
+function _calculate_user($table, $timestamp_from, $timestamp_to) {
 
   // calculate for user
   // 
@@ -228,9 +264,37 @@ function tvchat_calculate_ranking($table, $timestamp_from, $timestamp_to) {
     $user = user_load($element->uid);
 
     if (isset($user)) {
-      db_query("INSERT INTO {%s} (entity_type, entity_uid, entity_taxonomy, points, target_date) VALUES ('%s', %d, %d, %d, %d)", $table, 'user', $element->uid, 0, $element->points, $target_date);
+        $ranking_element = array(
+            'entity_type'       => 'user',
+            'entity_uid'        => $element->entity_uid,
+            'entity_taxonomy'   => 0,
+            'points'            => $element->points,
+            'target_date'       => $target_date,
+            'timestamp'         => $timestamp
+        );
+        drupal_write_record($table, $ranking_element);
+
     }
   }
+}
+
+function tvchat_calculate_ranking($table, $timestamp_from, $timestamp_to) {
+
+  // get date from timestamp_from
+  //
+  $target_date = date('Ymd', $timestamp_to);
+  $timestamp = time();
+
+  $array_operation = array();
+  $array_operation['tvshow'] = array('Commnet: tvshow', 'Flag Check In', 'Flag FavoriteTVShow');
+  $array_operation['issue'] = array('Comment: issue');
+
+  _calculate_tvshow($table, $array_operation, $timestamp_from, $timestamp_to, $target_date, $timestamp);
+
+  // _calculate_issue($table, $array_operation, $timestamp_from, $timestamp_to);
+
+  // _calculate_user($table, $timestamp_from, $timestamp_to);
+
 }
 
 function tvchat_comment_master_change($node, $user, $prev_user) {
@@ -251,6 +315,7 @@ function tvchat_comment_master_change($node, $user, $prev_user) {
 
 function tvchat_assign_master($table, $timestamp_from, $timestamp_to) {  
 
+  $timestamp = time();
   $array_operation = array();
   $array_operation['tvshow'] = array('Commnet: tvshow', 'Flag Check In', 'Flag FavoriteTVShow');
   $array_operation['issue'] = array('Comment: issue');
@@ -281,8 +346,16 @@ function tvchat_assign_master($table, $timestamp_from, $timestamp_to) {
           continue;
       }
 
-      $_query = sprintf("INSERT INTO {%s} (entity_type, entity_uid, entity_taxonomy, points, target_date, entity_nid) VALUES ('%s', %d, %d, %d, %d, %d)", $table, 'master', $element->uid, 0, $element->points, $target_date, $element->entity_id);
-      db_query($_query);
+      $ranking_element = array(
+        'entity_type' => 'master',
+        'entity_uid'    => $element->uid,
+        'entity_taxonomy'   => 0,
+        'points'            => $element->points,
+        'target_date'       => $target_date,
+        'entity_id'         => $element->entity_id,
+        'timestamp'         => $timestamp
+      );
+      drupal_write_record($table, $ranking_element);
 
       $prev_user = user_load($node->field_master[0]['uid']);
 
@@ -600,4 +673,5 @@ function _file_upload($fname, $attachment) {
   }
   return NULL;
 }
+
 
