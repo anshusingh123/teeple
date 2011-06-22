@@ -93,8 +93,7 @@ function _send_to_APNS($deviceToken, $subject, $badge) {
  *   an array of uid structure
  */
 function privatemsg_tvchat_service_get_uids($uid=0) {
-  global $base_root;
-  global $base_path;
+  global $base_url;
 
   // make sure the user is logged in.
   if ($uid != 0) {
@@ -110,6 +109,7 @@ function privatemsg_tvchat_service_get_uids($uid=0) {
   }
 
   // get thread list
+  // 
   $_query = sprintf("select max(index1.mid) mid, index1.thread_id thread_id from pm_index index1, pm_index index2 where index1.thread_id = index2.thread_id and index1.recipient <> index2.recipient and index1.recipient=%d and index1.deleted = 0 group by index1.thread_id order by max(index1.mid) desc", $account->uid);
   $results = db_query($_query);
 
@@ -119,7 +119,7 @@ function privatemsg_tvchat_service_get_uids($uid=0) {
 
     // list_pm_temp
     //
-    $_query = sprintf("SELECT pm_message.mid AS mid, users_pm_message_profile_values_profile_nickname.value AS nickname, users_pm_message_profile_values_profile_nickname.uid AS author, pm_message.subject AS subject, pm_message.body AS body, users_pm_message.picture AS picture FROM pm_message pm_message  LEFT JOIN users users_pm_message ON pm_message.author = users_pm_message.uid LEFT JOIN profile_values users_pm_message_profile_values_profile_nickname ON users_pm_message.uid = users_pm_message_profile_values_profile_nickname.uid AND users_pm_message_profile_values_profile_nickname.fid = '5' WHERE pm_message.mid = %d", $element->mid);
+    $_query = sprintf("SELECT pm_message.mid AS mid, users_pm_message_profile_values_profile_nickname.value AS nickname, users_pm_message_profile_values_profile_nickname.uid AS author, pm_message.subject AS subject, pm_message.body AS body, users_pm_message.picture AS picture, pm_message.timestamp AS postDate FROM pm_message pm_message  LEFT JOIN users users_pm_message ON pm_message.author = users_pm_message.uid LEFT JOIN profile_values users_pm_message_profile_values_profile_nickname ON users_pm_message.uid = users_pm_message_profile_values_profile_nickname.uid AND users_pm_message_profile_values_profile_nickname.fid = '5' WHERE pm_message.mid = %d", $element->mid);
     $message = db_fetch_object(db_query($_query));
 
     // unread_count
@@ -132,14 +132,32 @@ function privatemsg_tvchat_service_get_uids($uid=0) {
     $participants = _get_participent_uids_by_thread_id($element->thread_id);
     $participants = array_diff($participants, array($message->author));
 
+    $list_participants = array();
+
     if($message) {
-      $returns[$element->thread_id]['thread_id'] = $element->thread_id;
-      $returns[$element->thread_id]['unread_count'] = $unread_count;
-      $returns[$element->thread_id]['participants'] = join(',', $participants);
-      $returns[$element->thread_id]['mid'] = $message->mid;
-      $returns[$element->thread_id]['picture'] = $base_root.$base_path.$message->picture;
-      $returns[$element->thread_id]['authorId'] = $message->author;
-      $returns[$element->thread_id]['body'] = $message->body;
+
+      foreach ($participants as $participant) {
+        $temp_user = user_load($participant);
+        $list_participants[] = array('uid' => $participant, 'nickName'=> $temp_user->profile_nickname);
+      }
+
+      if (isset($message->picture) && (strlen($message->picture) > 0)) {
+        $picture = $base_url.'/'.$message->picture;
+      } else {
+        $picture = null;
+      }
+      $postDate = date('Y-m-d H:i', $message->postDate);
+
+      $returns[] = array(
+        'thread_id'     => $element->thread_id,
+        'unread_count'  => $unread_count,
+        'participants'  => $list_participants,
+        'mid'           => $message->mid,
+        'picture'       => $picture,
+        'authorId'      => $message->author,
+        'body'          => $message->body,
+        'postDate'      => $postDate
+     );
     };
   };
 
@@ -199,11 +217,15 @@ function privatemsg_tvchat_service_get_msg($fr_uid, $uid=0, $offset=0, $limit=0)
   while ($element = db_fetch_object($result)) {
     $message = db_fetch_object(db_query("SELECT mid, author, subject, body, timestamp FROM {pm_message} WHERE mid=%d", $element->mid));
 
+    $postDate = date('Y-m-d H:i', $message->timestamp);
+
     if($message) {
-      $returns[$message->mid]['authorId'] = $message->author;
-      $returns[$message->mid]['subject'] = $message->subject;
-      $returns[$message->mid]['body'] = $message->body;
-      $returns[$message->mid]['timestamp'] = $message->timestamp;
+      $returns[] = array(
+        'authorId' => $message->author,
+        'subject'  => $message->subject,
+        'body' => $message->body,
+        'timestamp' => $postDate
+      );
     };
   };
 
@@ -232,10 +254,15 @@ function privatemsg_tvchat_service_get_msg_with_recipient_uid($recipient_uid, $o
         }
 
         while ($element = db_fetch_object($result)) {
-            $returns[$element->mid]['authorId'] = $element->author;
-            $returns[$element->mid]['subject'] = $element->subject;
-            $returns[$element->mid]['body'] = $element->body;
-            $returns[$element->mid]['timestamp'] = $element->timestamp;
+
+            $postDate = date('Y-m-d H:i', $element->timestamp);
+
+            $returns[]  = array(
+                'authorId'  => $element->author,
+                'subject'   => $element->subject,
+                'body'      => $element->body,
+                'postDate'  => $postDate
+            );
         }
 
         // $ret_array = privatemsg_thread_load($thread_id, $account, $offset);
@@ -357,6 +384,46 @@ function privatemsg_tvchat_service_get_thread_with_attachment($thread_id, $offse
   return $thread;
 }
 
+function privatemsg_tvchat_service_get_thread($thread_id, $offset =0){
+
+    // Return if wrong paramters are passed.
+    if (!$thread_id || !is_numeric($thread_id)) {
+        return services_error(t('Invalid parameters passed'), 400);
+    }
+
+    // Make sure the user is logged in.
+    global $user;
+    $account = user_load($user->uid);
+    if (!user_is_logged_in()) {
+        return services_error(t('The user is not logged in.'), 403);
+    }
+
+    // Return the full thread.
+    $thread = privatemsg_thread_load($thread_id, $account, $offset);
+
+    // Simplify thread object and enhance messages.
+    $thread = _privatemsg_service_process_thread($thread);
+
+    // Resort the array keys for messages starting at 0.
+    $thread['messages'] = array_values($thread['messages']);
+
+    foreach($thread['messages'] AS $message) {
+        if ($message['is_new'] != 0) { continue; };
+        $postDate = date('Y-m-d H:m', $message['timestamp']);
+        $ret_array[] = array(
+            'thread_id' => $message['thread_id'],
+            'mid' => $message['mid'],
+            'files' => $message['files'],
+            'authorId' => $message['author']->uid,
+            'body' => $message['body'],
+            'postDate' => $postDate
+        );
+    }
+
+    return $ret_array;
+
+}
+
 function _message_insert($file, $mid) {
   if ($file->new) {
     db_query("INSERT INTO {pm_attachments} (fid, mid, list, description, weight) VALUES (%d, %d, %d, '%s', %d)", $file->fid, $mid, $file->list, $file->description, $file->weight);
@@ -407,4 +474,3 @@ function _message_save_upload($fname, $attachment) {
     return  NULL;
   }
 }
-

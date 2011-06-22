@@ -168,8 +168,7 @@ function tvchat_search_node($title)
 //
 // returns user flagged nodes 
 //
-function tvchat_get_flagged_node($flag_name, $uid)
-{
+function tvchat_get_flagged_node($flag_name, $uid) {
 	$sql = "SELECT content_id FROM flag_content as c, flags as f WHERE f.fid = c.fid AND name = '%s' and uid = %d"; 
 	$result = db_query($sql, $flag_name, $uid);
 	$nodes = array();
@@ -178,7 +177,6 @@ function tvchat_get_flagged_node($flag_name, $uid)
   }
 	return $nodes;
 }	
-
 
 function tvchat_calculate_ranking($table, $timestamp_from, $timestamp_to) {
 
@@ -196,7 +194,6 @@ function tvchat_calculate_ranking($table, $timestamp_from, $timestamp_to) {
   $query = db_query($_query);
 
   while($element = db_fetch_object($query)) {
-
     $node = node_load($element->entity_id);
 
     if (isset($node)) {
@@ -221,7 +218,6 @@ function tvchat_calculate_ranking($table, $timestamp_from, $timestamp_to) {
       db_query("INSERT INTO {%s} (entity_type, entity_nid, entity_taxonomy, points, target_date) VALUES ('%s', %d, %d, %d, %d)", $table, 'issue', $element->entity_id, 0, $element->points, $target_date);
     }
   }
-
 
   // calculate for user
   // 

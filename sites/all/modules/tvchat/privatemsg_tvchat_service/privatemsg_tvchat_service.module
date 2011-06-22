@@ -100,6 +100,30 @@ function privatemsg_tvchat_service_service() {
       '#help'             => t('Get message list who communicate with private messages.')
     ),
 
+    // privatemsg.getThread
+    array(
+      '#method'     => 'privatemsg.getThread',
+      '#callback'   => 'privatemsg_tvchat_service_get_thread',
+      '#access arguments' => array('get private messages from remote'),
+      '#file'       => array('file' => 'inc', 'module' => 'privatemsg_tvchat_service'),
+      '#args'       => array(
+        array(
+            '#name'         => 'thread_id',
+            '#type'         => 'int',
+            '#description'=> t('The ID of the thread that should be retrieved.')
+        ),
+        array(
+            '#name'         => 'offset',
+            '#type'         => 'int',
+            '#optional'     => TRUE,
+            '#description'  => t('Message offset from the start of the thread.')
+                    ),
+                ),
+            '#return'           => 'array',
+            '#help'             => t('Get all messages in a thread. User needs to be logged in. Unless the logged-in user has the \'read all private messages\' permission, the user will only be able to get threads that he/she participated in.')
+         ),
+
+
     array(
       '#method'           => 'privatemsg.sendWithUids',
       '#callback'         => 'privatemsg_tvchat_service_send_with_uids',

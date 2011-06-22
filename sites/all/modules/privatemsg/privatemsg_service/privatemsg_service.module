@@ -133,7 +133,7 @@ function privatemsg_service_service() {
 
     // privatemsg.getThread
     array(
-      '#method'           => 'privatemsg.getThread',
+      '#method'           => 'privatemsg.getThreadOrg',
       '#callback'         => 'privatemsg_service_get_thread',
       '#access arguments' => array('get private messages from remote'),
       '#file'             => array('file' => 'inc', 'module' => 'privatemsg_service'),

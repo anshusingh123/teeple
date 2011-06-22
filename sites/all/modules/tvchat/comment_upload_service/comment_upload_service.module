@@ -171,11 +171,6 @@ function comment_upload_service_save($nid, $cid, $fname, $attchment) {
     // Write the file
 	if(strlen($file->file) > 0) {
 
-        $fname = '/var/www/tvchat/sites/default/files/base64.jpg';
-        $file1 = fopen($fname, "wb");
-        fwrite($file1, base64_decode($file->file));
-        fclose($file1);
-
     	if (!file_save_data(base64_decode($file->file), $file->filepath)) {
         	return services_error("Could not write file to destination");
     	}
