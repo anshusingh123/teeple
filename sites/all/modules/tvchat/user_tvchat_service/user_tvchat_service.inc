@@ -142,7 +142,6 @@ function _user_account_update($email=null, $fname=null, $picture=null) {
   }
 
   return $account->uid;
-
 }
 
 function _user_tvchat_validate_picture($fname, $attachment, $uid) {
@@ -333,7 +332,7 @@ function user_tvchat_service_signup($nick, $email, $phone_number, $fname=null, $
         $ret_array['uid'] = $user->uid;
         $ret_array['name'] = $user->name;
         $ret_array['pass'] = $user->pass;
-        $ret_array['jid'] = $user->profile_jid;
+        $ret_array['jid'] = $user->uid;
 
     // new account creation 
     // 
@@ -360,14 +359,15 @@ function user_tvchat_service_signup($nick, $email, $phone_number, $fname=null, $
        $ret_array['uid'] = $user->uid;
        $ret_array['name'] = $user->name;
        $ret_array['pass'] = $account_tmp->pass;
-       $ret_array['jid'] = $user->profile_jid;
+       $ret_array['jid'] = $user->uid;
     }
 
   // new account creation 
   //
   } else {
 
-    watchdog('tvchat_signup', 'HERE3');
+      watchdog('tvchat_signup', 'HERE3');
+
       $is_new_user = true;
 
       $account_tmp = new stdClass();
@@ -375,8 +375,6 @@ function user_tvchat_service_signup($nick, $email, $phone_number, $fname=null, $
       $account_tmp->name = $email;
       $account_tmp->pass = user_password();
       $account_tmp->mail = $email;
-
-      watchdog('tvchat_signup', 'HERE3');
 
       $uid_approved = user_tvchat_service_save_new($account_tmp, $fname, $picture);
       if ($uid_approved < 0) {
@@ -387,7 +385,7 @@ function user_tvchat_service_signup($nick, $email, $phone_number, $fname=null, $
       $ret_array['uid'] = $user->uid;
       $ret_array['name'] = $user->name;
       $ret_array['pass'] = $account_tmp->pass;
-      $ret_array['jid'] = $user->profile_jid;
+      $ret_array['jid'] = $user->uid;
   }
 
   watchdog('tvchat_signup', 'HERE4');
@@ -447,5 +445,6 @@ function user_tvchat_service_update($nick=null, $todayMessage=null, $fname=null,
   $account->picture = $base_url.'/'.$account->picture;
 
   return $account;
+
 }
 
