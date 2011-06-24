@@ -67,6 +67,14 @@ function node_setting($data, $operators, $genres) {
     {
       $file = new stdClass();
       $file->filepath = "sites/default/files/Upload/Logo/".$data[2].".jpg";
+
+      if(!file_exists($file->filepath)) {
+        $file->filepath = "sites/default/files/Upload/Logo/".$data[2].".png";
+
+        if(!file_exists($file->filepath)) {
+            return null;
+        }
+      }
       $node->field_logo_image = array(drupal_add_existing_file($file->filepath));
     }
 
@@ -100,6 +108,8 @@ if (($handle = fopen($file_name, "r")) !== FALSE) {
       echo "<p> $num fields in line $row: <br /></p>\n";
 
       $node = node_setting($data, $operators, $genres);
+
+      if(!isset($node)) { continue; }
 
       node_save($node);
       echo "NID: ".$node->nid;

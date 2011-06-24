@@ -178,7 +178,7 @@ function tvchat_get_flagged_node($flag_name, $uid) {
 	return $nodes;
 }	
 
-function _calculate_tvshow($table, $array_operation, $timstamp_from, $timestamp_to, $target_date, $timestamp) {
+function _calculate_tvshow($table, $array_operation, $timestamp_from, $timestamp_to, $target_date, $timestamp) {
 
   // calculate for tvshow
   //
@@ -189,6 +189,7 @@ function _calculate_tvshow($table, $array_operation, $timstamp_from, $timestamp_
 
   if( $table = 'tvchat_ranking_weekly') {
       $num_rows = db_affected_rows();
+
       while($num_rows < $max_top_show) {
           $timestamp_from = $timestamp_from - 86400 * 7;
           $_query = sprintf("select entity_id, sum(points) points FROM userpoints_txn WHERE operation in ('%s') and time_stamp between %d and %d Group By entity_id HAVING points > 0", implode("','", $array_operation['tvshow']), $timestamp_from , $timestamp_to);
@@ -286,7 +287,7 @@ function tvchat_calculate_ranking($table, $timestamp_from, $timestamp_to) {
   $timestamp = time();
 
   $array_operation = array();
-  $array_operation['tvshow'] = array('Commnet: tvshow', 'Flag Check In', 'Flag FavoriteTVShow');
+  $array_operation['tvshow'] = array('Comment: tvshow', 'Flag Check In', 'Flag FavoriteTVShow');
   $array_operation['issue'] = array('Comment: issue');
 
   _calculate_tvshow($table, $array_operation, $timestamp_from, $timestamp_to, $target_date, $timestamp);

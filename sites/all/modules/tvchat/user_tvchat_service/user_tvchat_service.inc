@@ -227,6 +227,35 @@ function user_tvchat_service_changePassword($newPassword, $uid=0) {
 
 }
 
+function _account_reset($uid_by_email, $email) {
+
+  $ret_array = array();
+
+  // password reset
+  // 
+  $user = user_load($uid_by_email);
+  $user->name = $email;
+  $user->pass = user_password();
+  $edit = array('name' => $user->name, 'pass' => $user->pass);
+  user_save($user, $edit);
+
+  // password reset mail sending
+  // 
+  $email_to = $user->mail;
+  $subject = '[teeple] password reset';
+  $body = sprintf("teeple password reset.\n. password: %s\n. please enter the password in teeple application\n. Jump to Teeple: Teeple://SignIn-password:%s", $user->pass, $user->pass);
+  $message = array( 'to' => $email_to, 'subject'=> $subject, 'body' => $body);
+  drupal_mail_send($message);
+
+  // 
+  $ret_array['uid'] = $user->uid;
+  $ret_array['name'] = $user->name;
+  $ret_array['pass'] = null;
+  $ret_array['jid'] = $user->profile_jid;
+
+  return $ret_array;
+}
+
 /**
  * 
  *
@@ -250,7 +279,7 @@ function user_tvchat_service_changePassword($newPassword, $uid=0) {
  *    string
  *    user picture filename
  * @param $picture
- *    string
+ *    strinuser->uid
  *    user picture - base64 encoded
  * @param $token_APNS
  *    string
@@ -261,14 +290,13 @@ function user_tvchat_service_changePassword($newPassword, $uid=0) {
  */
 function user_tvchat_service_signup($nick, $email, $phone_number, $fname=null, $picture=null, $token_APNS=null, $status=1) {
 
-  if( (!isset($picture)) && isset($_POST['picture']) && strlen($_POST['picture']) ) {
+  if((!isset($picture)) && isset($_POST['picture']) && strlen($_POST['picture'])) {
       $picture = str_replace('"', '', $_POST['picture']);
   }
 
   if(!valid_email_address($email)) {
       return services_error(t('The e-mail address %mail is not valid.', array('%mail' => $email)), 501);
-  } 
-  $email_prefix = substr($email, 0, strpos($email, '@'));
+  }
 
   $ret_array = array();
 
@@ -281,36 +309,17 @@ function user_tvchat_service_signup($nick, $email, $phone_number, $fname=null, $
   // 
   if (isset($uid_by_email) && ($uid_by_email > 0)) {
 
-    // password reset
-    // 
-    $user = user_load($uid_by_email);
-    $user->name = $email;
-    $user->pass = user_password();
-    $edit = array('name' => $user->name, 'pass' => $user->pass);
-    user_save($user, $edit);
-
-    // password reset mail sending
-    // 
-    $email_to = $user->mail;
-    $subject = '[teeple] password reset';
-    $body = sprintf("teeple password reset.\n. password: %s\n. please enter the password in teeple application\n. Jump to Teeple: Teeple://SignIn-password:%s", $user->pass, $user->pass);
-
-    $message = array( 'to' => $email_to, 'subject'=> $subject, 'body' => $body);
-    drupal_mail_send($message);
-
-    // 
-    $ret_array['uid'] = $user->uid;
-    $ret_array['name'] = $user->name;
-    $ret_array['pass'] = null;
-    $ret_array['jid'] = $user->profile_jid;
-    // $ret_array['pass'] = $user->pass;
+    $ret_array = _account_reset($uid_by_email, $email);
 
   // email = different, phone_no = same
   // 
   } elseif (isset($uid_by_phone) && $uid_by_phone > 0) {
 
     $user = user_load($uid_by_phone);
+
     if ($user->status == '0') {
+
+      watchdog('tvchat_signup', 'HERE1');
 
         // change the user name by email address
         // 
@@ -329,6 +338,8 @@ function user_tvchat_service_signup($nick, $email, $phone_number, $fname=null, $
     // new account creation 
     // 
     } else {
+
+      watchdog('tvchat_signup', 'HERE2');
 
       // make a new user account
       // 
@@ -355,6 +366,8 @@ function user_tvchat_service_signup($nick, $email, $phone_number, $fname=null, $
   // new account creation 
   //
   } else {
+
+    watchdog('tvchat_signup', 'HERE3');
       $is_new_user = true;
 
       $account_tmp = new stdClass();
@@ -362,6 +375,8 @@ function user_tvchat_service_signup($nick, $email, $phone_number, $fname=null, $
       $account_tmp->name = $email;
       $account_tmp->pass = user_password();
       $account_tmp->mail = $email;
+
+      watchdog('tvchat_signup', 'HERE3');
 
       $uid_approved = user_tvchat_service_save_new($account_tmp, $fname, $picture);
       if ($uid_approved < 0) {
@@ -372,10 +387,10 @@ function user_tvchat_service_signup($nick, $email, $phone_number, $fname=null, $
       $ret_array['uid'] = $user->uid;
       $ret_array['name'] = $user->name;
       $ret_array['pass'] = $account_tmp->pass;
-
-      // $ret_array['jid'] = $user->profile_jid;
-      $ret_array['jid'] = $user->uid;
+      $ret_array['jid'] = $user->profile_jid;
   }
+
+  watchdog('tvchat_signup', 'HERE4');
 
   // profile update ('Personal information' category)
   //
@@ -384,7 +399,7 @@ function user_tvchat_service_signup($nick, $email, $phone_number, $fname=null, $
   if ($nick) { $edit['profile_nickname'] = $nick; }
   if ($token_APNS) { $edit['profile_APNS_token'] = $token_APNS; }
   if ($phone_number) { $edit['profile_phone_no'] = $phone_number; }
-  if ($is_new_user) { $edit['profile_jid'] = $email_prefix.$phone_number; }
+  if ($is_new_user) { $edit['profile_jid'] = $user->uid; }
 
   profile_save_profile($edit, $user, 'Personal information');
 

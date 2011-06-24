@@ -1,5 +1,0 @@
-// $id: Changelog.txt 
-
-XMPPFRAMEWORK 6.x-2.dev
-=======================
-
