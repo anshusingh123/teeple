@@ -244,13 +244,14 @@ function _account_reset($uid_by_email, $email) {
   $subject = '[teeple] password reset';
   $body = sprintf("teeple password reset.\n. password: %s\n. please enter the password in teeple application\n. Jump to Teeple: Teeple://SignIn-password:%s", $user->pass, $user->pass);
   $message = array( 'to' => $email_to, 'subject'=> $subject, 'body' => $body);
-  drupal_mail_send($message);
+  //drupal_mail_send($message);
+  mail($email_to, $subject, $body);
 
   // 
   $ret_array['uid'] = $user->uid;
   $ret_array['name'] = $user->name;
   $ret_array['pass'] = null;
-  $ret_array['jid'] = $user->profile_jid;
+  $ret_array['jid'] = $user->uid;
 
   return $ret_array;
 }
@@ -304,11 +305,16 @@ function user_tvchat_service_signup($nick, $email, $phone_number, $fname=null, $
 
   $is_new_user = false;
 
+  $flag_account_reset = false;
+
   // email already exist
   // 
   if (isset($uid_by_email) && ($uid_by_email > 0)) {
 
+    $user = user_load($uid_by_email);
     $ret_array = _account_reset($uid_by_email, $email);
+
+    $flag_account_reset = true;
 
   // email = different, phone_no = same
   // 
@@ -326,7 +332,7 @@ function user_tvchat_service_signup($nick, $email, $phone_number, $fname=null, $
         $user->name = $email;
         $user->mail = $email;
         $user->pass = user_password();
-        $edit = array('status' => '1', 'mail' => $email);
+        $edit = array('status' => '1', 'mail' => $email, 'name' => $email);
         user_save($user, $edit);
 
         $ret_array['uid'] = $user->uid;
@@ -398,6 +404,11 @@ function user_tvchat_service_signup($nick, $email, $phone_number, $fname=null, $
   if ($token_APNS) { $edit['profile_APNS_token'] = $token_APNS; }
   if ($phone_number) { $edit['profile_phone_no'] = $phone_number; }
   if ($is_new_user) { $edit['profile_jid'] = $user->uid; }
+
+  if(isset($flag_account_reest)){
+    if ($user->profile_message_alarm) { $edit['profile_message_alarm'] = $user->profile_message_alarm; }
+    if ($user->profile_tvshow_alarm) { $edit['profile_tvshow_alarm'] = $user->profile_tvshow_alarm; }
+  }
 
   profile_save_profile($edit, $user, 'Personal information');
 

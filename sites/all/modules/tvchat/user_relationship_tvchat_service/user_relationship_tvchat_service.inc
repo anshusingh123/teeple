@@ -8,12 +8,16 @@
 function user_relationship_tvchat_service_mine_with_type($version, $type_name) {
   try {
     global $user;
+
     $type = user_relationships_type_load(array('name' => $type_name));
     $param = array('user' => $user->uid, 'rtid' => $type->rtid, 'approved' => '1');
+
     $rels = user_relationships_load($param);
+    /*
     if (!$rels || !is_array($rels)) {
       throw new Exception("User relationship load failed");
     }
+    */
     return array_values($rels);
   } catch (Exception $ex) {
     return services_error(t('Error getting user relationships: @msg', array('@msg' => $ex->getMessage())));

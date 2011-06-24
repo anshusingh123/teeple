@@ -454,14 +454,14 @@ function tvchat_timetable_making($fromDate=NULL, $toDate=NULL) {
 }
 
 function tvchat_friends_uid_list(){
-  module_load_include('inc', 'user_relationship_service', 'user_relationship_service_tvchat');
+  module_load_include('inc', 'user_relationship_tvchat_service');
 
   try {
     global $user;
 
-    $friends_list = user_relationship_service_mine_with_type('1', 'Friend');
-    $friends_uid_list = array();
+    $friends_list = user_relationship_tvchat_service_mine_with_type('1', 'Friend');
 
+    $friends_uid_list = array();
     if (isset($friends_list) && count($friends_list) > 0 ) {
       foreach($friends_list as $friend) {
         $friends_uid_list[] = $friend->requester_id;
@@ -469,11 +469,8 @@ function tvchat_friends_uid_list(){
       } 
       $friends_uid_list = array_unique($friends_uid_list);
       $friends_uid_list = array_diff($friends_uid_list, (array)$user->uid);
-      return array_values($friends_uid_list);
-
-      } else {
-        return services_error(t('Don\'t have any friends'), 511);
     }
+    return array_values($friends_uid_list);
 
   } catch (Exception $ex) {
     return services_error(t('Error getting friend_list: $msg', array('@msg' => $ex->getMessage())));
