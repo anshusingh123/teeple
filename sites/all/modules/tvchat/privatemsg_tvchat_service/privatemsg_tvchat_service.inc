@@ -274,6 +274,7 @@ function privatemsg_tvchat_service_get_msg_with_recipient_uid($recipient_uid, $o
 // send_with_uids
 //
 function privatemsg_tvchat_service_send_with_uids($recipientUids, $body = NULL, $subject = NULL, $fname, $attachment) {
+
   global $user;
   module_load_include('inc', 'privatemsg_service');
 
@@ -292,7 +293,6 @@ function privatemsg_tvchat_service_send_with_uids($recipientUids, $body = NULL, 
   if ($thread_id == 0) {
     foreach($recipientUids as $uid) {
         $recipient = user_load($uid);
-        // $user_names[] = $recipient->name;
         $recipients[] = $recipient;
     }
 

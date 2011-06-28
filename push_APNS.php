@@ -7,9 +7,10 @@
  */
 
 include_once './includes/bootstrap.inc';
-include_once './sites/all/modules/privatemsg/pm_service/pm_service.inc';
-
 drupal_bootstrap(DRUPAL_BOOTSTRAP_FULL);
+
+module_load_include('inc', 'privatemsg_service');
+module_load_include('inc', 'privatemsg_tvchat_service');
 
 setlocale(LC_ALL, 'ko_KR.UTF-8');
 

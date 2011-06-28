@@ -19,6 +19,17 @@ $user = user_load($uid);
 
 $edit = array();
 $edit['profile_email_confirmed'] = '1';
+
+$values = array('profile_nickname', 'profile_APNS_token', 'profile_phone_no', 'profile_message_alarm', 'profile_tvshow_alarm');
+
+$user_arr = (array)$user;
+
+foreach($values as $value) {
+    if($user_arr[$value]){ 
+        $edit[$value] = $user_arr[$value];
+    }
+}
+
 profile_save_profile($edit, $user, 'Personal information');
 
 echo 'email이 인증되었습니다. 감사합니다.<br>';
