@@ -272,7 +272,6 @@ function privatemsg_tvchat_service_get_msg_with_recipient_uid($recipient_uid, $o
 }
 
 // send_with_uids
-// same message to uids together 
 //
 function privatemsg_tvchat_service_send_with_uids($recipientUids, $body = NULL, $subject = NULL, $fname, $attachment) {
   global $user;
@@ -286,20 +285,27 @@ function privatemsg_tvchat_service_send_with_uids($recipientUids, $body = NULL, 
   $author = drupal_clone($account);
 
   $ret_array = array();
-
   $thread_id = _get_thread_id_by_uids($author->uid, $recipientUids);
 
   // Not Found
   //
   if ($thread_id == 0) {
-
     foreach($recipientUids as $uid) {
         $recipient = user_load($uid);
-        $user_names[] = $recipient->name;
+        // $user_names[] = $recipient->name;
+        $recipients[] = $recipient;
     }
 
-    $file = _message_save_upload($fname, $attachment);
-    $ret = privatemsg_new_thread($user_names, 'private_message', $body, array('author' => $account));
+    if(isset($fname) && (strlen($fname)>0) &&
+        isset($attachment) && (strlen($attachment)>0)) {
+        $file = _message_save_upload($fname, $attachment);
+    }
+
+    if((!isset($subject)) && (strlen($subject)<=0)) {
+        $subject = 'private_message';
+    }
+
+    $ret = privatemsg_new_thread($recipients, $subject, $body, array('author' => $account));
 
   // FOUND 
   //
@@ -310,20 +316,24 @@ function privatemsg_tvchat_service_send_with_uids($recipientUids, $body = NULL, 
 
   }
 
+  /*
   if ($ret['success']) {
-    $ret_array['success'][$uid] = array('uid' => $uid, 'success' => true);
+    // $ret_array['success'][$uid] = array('uid' => $uid, 'success' => true);
+    $ret_array['success'][$uid] = $uid;
 
   } else {
-    $ret_array['fail'][$uid] = array('uid' => $uid, 'success' => false);
+    // $ret_array['fail'][$uid] = array('uid' => $uid, 'success' => false);
+    $ret_array['fail'][$uid] = $uid;
   }
+  */
 
-  if (count($ret_array['success']) > 0) {
-
+  if ($ret['success']) {
     _message_insert($file, $ret['message']['mid']);
 
-    // tvchat_send_xmpp_message($author->uid, $recipientUids, $body);
+    $ret_array['success']['thread_id'] = $ret['message']['thread_id'];
+    $ret_array['success']['message_id'] = $ret['message']['mid'];
 
-    return true;
+    return $ret_array['success'];
   }
 
   return services_error(t('No message sent succded to given recipients'), 500);

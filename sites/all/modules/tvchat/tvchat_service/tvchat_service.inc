@@ -99,58 +99,19 @@ function tvchat_service_comment_upload_save($fname) {
 	return false;
 }
 
-/*
-function sample($fields = array()) {
-  $result = db_query("SELECT nid FROM {node} WHERE type='tvshow'");
-
-  $nodes = array();
-  while ($node = db_fetch_object($result)){
-     $nodes[] = services_node_load(node_load($node->nid), $fields);
-  }
-  return $nodes;
-}
-*/
-
-// 
-/*
-  1) input parameters ($contacts_json)
-  ["010982342342", "0101231231"]
-
-  2) output 
-  {
-    "data": [
-      {
-        "uid": "133",
-        "phone": "010982342342",
-        "name": "aaaaaaaa",
-        "exist": "no"
-      },
-      {
-        "uid": "134",
-        "phone": "0101231231",
-        "name": "bbbbbbb"
-        "exist": "yes"
-      },
-    ]
-  }
-*/
-
-// tvchat_service 
+// tvchat_service_upload_contacts
 //
 function tvchat_service_upload_contacts($contacts_json) {
 
-  //
   module_load_include('inc', 'user_relationship_service');
   module_load_include('inc', 'user_service');
   module_load_include('inc', 'user_tvchat_service');
 
-  // get user's contacts 
-  // 
   global $user;
+  global $base_url;
 
   try {
     $fr_list = array();
-
     $contacts_array = array();
 
     // $contacts_array = $contacts_json;
@@ -161,7 +122,7 @@ function tvchat_service_upload_contacts($contacts_json) {
     }
 
     // make phone number list for db query
-    // 
+    //
     $phone_name_list = array();
     $phone_list = array();
     $friends_phone_list = array();
@@ -169,13 +130,15 @@ function tvchat_service_upload_contacts($contacts_json) {
     foreach ($contacts_array as $phone_no) {
         $phone_list[] = $phone_no;
         $phone_name_list[$phone_no]['phone'] = $phone_no;
+        $phone_name_list[$phone_no]['userId'] = null;
+        $phone_name_list[$phone_no]['userName'] = null;
+        $phone_name_list[$phone_no]['userPicture'] = null;
     }
 
     // check the phone number already exists
     // 
     $query_phone_list = implode("','", $phone_list);
     $_query = sprintf("SELECT uid, value FROM {profile_values} WHERE fid=14 AND value IN ('".$query_phone_list."')");
-
     $db_results = db_query($_query);
 
     $friends_uid_list = array();
@@ -183,13 +146,24 @@ function tvchat_service_upload_contacts($contacts_json) {
     // for existing friends
     // 
     while ($element = db_fetch_object($db_results)) {
-        $friends_uid_list[] = $element->uid;
-        $friends_phone_list[] = $element->value;
+        $account = user_load($element->uid);
 
-        $phone_name_list[$element->value]['uid'] = $element->uid;
-        $phone_name_list[$element->value]['exist'] = 'yes';
+        if(isset($account)) {
+            $friends_uid_list[] = $account->uid;
+            $friends_phone_list[] = $element->value;
+
+            $phone_name_list[$element->value]['uid'] = $account->uid;
+            $phone_name_list[$element->value]['userId'] = $account->uid;
+            $phone_name_list[$element->value]['userName'] = $account->name;
+            $phone_name_list[$element->value]['userNickName'] = $account->profile_nickname;
+            if(isset($account->picture) && (strlen($account->picture)>0)) {
+                $phone_name_list[$element->value]['userPicture'] = $base_url.$account->picture;
+            } else {
+                $phone_name_list[$element->value]['userPicture'] = null;
+            }
+            $phone_name_list[$element->value]['exist'] = 'yes';
+        }
     }
-
     $query_friends_uid_list = implode("','", $friends_uid_list);
 
     // if friend's request already exist 
@@ -198,37 +172,31 @@ function tvchat_service_upload_contacts($contacts_json) {
     $db_results = db_query($_query);
 
     $friends_requester_uid_list = array();
-
     while ($element = db_fetch_object($db_results)) {
         $friends_requester_uid_list[] = $element->requester-id;
 
         // requested but not approved 
-        // 
         if($element->approved == 0) {
             user_relationship_service_approve("1", $element->rid);
         }
     }
 
-    // if friend's request doesn't exist (my contact doesn't exist in other's contact list 
-    // 
+    // if friend's request doesn't exist 
+    // (my contact doesn't exist in other's contact list 
     $friends_non_requester_uid_list = array_diff($friends_uid_list, $friends_requester_uid_list);
     foreach ($friends_non_requester_uid_list as $uid) {
         user_relationship_service_request("1", $uid, 'Friend');
     }
 
     // make a new user for other whose contact exists in my address book
-    // 
+    //
     $friends_phone_new_list = array();
     $friends_phone_new_list = array_diff($phone_list, $friends_phone_list);
 
     $ret_array = array();
     foreach ($friends_phone_new_list as $new_phone_no) {
-
         $ret_array = user_tvchat_service_signup($new_phone_no, $new_phone_no.'@teeple.co.kr', $new_phone_no, null, null, null, 0);
         user_relationship_service_request("1", $ret_array['uid'], 'Friend');
-
-        $phone_name_list[$new_phone_no]['uid'] = $ret_array['uid'];
-        $phone_name_list[$new_phone_no]['exist'] = 'no';
     }
 
     $ret_contacts = array();

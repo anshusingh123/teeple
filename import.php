@@ -81,6 +81,10 @@ function node_setting($data, $operators, $genres) {
     $node->field_operator[0]['value'] = $operators[$data[0]];
     $node->field_genre[0]['value'] = $genres[$data[3]];
 
+    $node->field_weeks[0]['value'] = $data[4];
+    $node->field_start_time[0]['value'] = sprintf('%02d:%02d',$data[5],$data[6]);
+    $node->field_end_time[0]['value'] = sprintf('%02d:%02d', $data[7], $data[8]);
+
     // default master id = 1
     $node->field_master[0]['uid'] = '1';
 

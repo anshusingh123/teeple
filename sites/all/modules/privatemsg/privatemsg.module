@@ -1575,6 +1575,7 @@ function privatemsg_new_thread($recipients, $subject, $body = NULL, $options = a
   );
 
   $validated = _privatemsg_validate_message($message);
+
   if ($validated['success']) {
     $validated['message'] = _privatemsg_send($message);
     if ($validated['message'] !== FALSE) {

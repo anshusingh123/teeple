@@ -21,7 +21,7 @@
  */
 function user_tvchat_service_save_new($account, $fname, $picture) {
 
-	// bhtak 2011/1/9
+   // bhtak 2011/1/9
   // json_decode returns an object
   // watchdog('user.save1', print_r( $account,TRUE));
   // watchdog('user.save1', drupal_to_js($account));
@@ -106,18 +106,29 @@ function user_tvchat_service_save_new($account, $fname, $picture) {
 
 function _user_account_update($email=null, $fname=null, $picture=null) {
 
-  // User needs to be authenticated to proceed.
-  global $user;
-
-  $account = user_load($user->uid);
-
-  if (is_object($account)) { $update = (array)$account; } 
-  if (isset($email) && !empty($email)) { $update['mail'] = $email; }
-
   // Load the required includes for saving profile information
   // with drupal_execute().
   module_load_include('inc', 'user', 'user.pages');
   module_load_include('inc', 'tvchat');
+
+  // User needs to be authenticated to proceed.
+  global $user;
+  $account = user_load($user->uid);
+
+  $uid_by_email = db_result(db_query("SELECT uid FROM {users} WHERE LOWER(mail) = LOWER('%s')", $email));
+
+  // email already exist 
+  // 
+  if( (isset($uid_by_email) && $uid_by_email >0 ) &&  ($uid_by_email != $user->uid)) {
+      // return services_error(t('Email is already reserved for other User '), 407);
+      return -1;
+  }
+
+  if (is_object($account)) { $update = (array)$account; } 
+  if (isset($email) && !empty($email)) { 
+        $update['mail'] = $email; 
+        $update['name'] = $email; 
+  }
 
   $edit = array();
   $category = 'account';
@@ -129,13 +140,15 @@ function _user_account_update($email=null, $fname=null, $picture=null) {
     }
   }
 
-  if ($category == 'account') { $ret = user_save($account, $edit, $category); }
+  if($category == 'account') { $ret = user_save($account, $edit, $category); }
+  if(!isset($ret)) { return -1; }
 
-  if (isset($fname) && isset($picture)) {
+  if (isset($fname) && isset($picture) && (strlen($fname) > 0) && (strlen($picture) > 0)) {
     $file = _user_tvchat_validate_picture($fname,$picture, $user->uid);
 
     if(!isset($file)) {
-        return services_error(t('User Picture Save Error'), 405);
+        return -1;
+        // return services_error(t('User Picture Save Error'), 405);
     }
     $info = image_get_info($file->filepath);
     $query = sprintf("picture = '%s'", variable_get('user_picture_path','pictures').'/picture-'.$form_state['user']->uid.'.'.$info['extension']);                   db_query ("UPDATE {users} SET $query WHERE uid = %d", $form_state['user']->uid);
@@ -324,8 +337,6 @@ function user_tvchat_service_signup($nick, $email, $phone_number, $fname=null, $
 
     if ($user->status == '0') {
 
-      watchdog('tvchat_signup', 'HERE1');
-
         // change the user name by email address
         // 
         $user->status = '1';
@@ -343,8 +354,6 @@ function user_tvchat_service_signup($nick, $email, $phone_number, $fname=null, $
     // new account creation 
     // 
     } else {
-
-      watchdog('tvchat_signup', 'HERE2');
 
       // make a new user account
       // 
@@ -372,8 +381,6 @@ function user_tvchat_service_signup($nick, $email, $phone_number, $fname=null, $
   //
   } else {
 
-      watchdog('tvchat_signup', 'HERE3');
-
       $is_new_user = true;
 
       $account_tmp = new stdClass();
@@ -394,18 +401,16 @@ function user_tvchat_service_signup($nick, $email, $phone_number, $fname=null, $
       $ret_array['jid'] = $user->uid;
   }
 
-  watchdog('tvchat_signup', 'HERE4');
-
   // profile update ('Personal information' category)
   //
   $edit = array();
 
-  if ($nick) { $edit['profile_nickname'] = $nick; }
-  if ($token_APNS) { $edit['profile_APNS_token'] = $token_APNS; }
-  if ($phone_number) { $edit['profile_phone_no'] = $phone_number; }
-  if ($is_new_user) { $edit['profile_jid'] = $user->uid; }
+  if (isset($nick) && (strlen($nick) > 0)) { $edit['profile_nickname'] = $nick; }
+  if (isset($token_APNS) && (strlen($token_APNS) > 0)) { $edit['profile_APNS_token'] = $token_APNS; }
+  if (isset($phone_number) && (strlen($phone_number) > 0)) { $edit['profile_phone_no'] = $phone_number; }
+  if (isset($is_new_user) && (strlen($is_new_user) > 0)) { $edit['profile_jid'] = $user->uid; }
 
-  if(isset($flag_account_reest)){
+  if(isset($flag_account_reset)){
     if ($user->profile_message_alarm) { $edit['profile_message_alarm'] = $user->profile_message_alarm; }
     if ($user->profile_tvshow_alarm) { $edit['profile_tvshow_alarm'] = $user->profile_tvshow_alarm; }
   }
@@ -418,6 +423,7 @@ function user_tvchat_service_signup($nick, $email, $phone_number, $fname=null, $
 //
 function user_tvchat_service_update($nick=null, $todayMessage=null, $fname=null, $picture=null, $message_alarm=null, $tvshow_alarm=null, $fb_id=null, $token_APNS=null, $phone_number=null, $email=null) {
 
+  global $user;
   global $base_url;
 
   if(isset($_POST['picture']) && (strlen($_POST['picture'])>0) ) {

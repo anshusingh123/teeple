@@ -481,7 +481,7 @@ function tvchat_send_xmpp_message($authorId, $recipientUids, $body){
     global $user;
 
     $account = user_load($authorId);
-    $sender_jid = $account->profile_jid.'@'.$_SERVER['HTTP_HOST'];
+    $sender_jid = $account->uid.'@'.$_SERVER['HTTP_HOST'];
 
     $ret_message = array();
     $ret_message['#error'] = 'false';
@@ -495,7 +495,7 @@ function tvchat_send_xmpp_message($authorId, $recipientUids, $body){
         if ($result > 0) {
             $data = array();
             $account_receiver = user_load($uid);
-            $receiver_jid = $account_receiver->profile_jid.'@'.$_SERVER['HTTP_HOST'];
+            $receiver_jid = $account_receiver->uid.'@'.$_SERVER['HTTP_HOST'];
 
             $data['uid'] = $account_receiver->uid;
             $data['message'] = $body;

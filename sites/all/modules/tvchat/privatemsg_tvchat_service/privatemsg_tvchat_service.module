@@ -161,7 +161,7 @@ function privatemsg_tvchat_service_service() {
           '#description'  => t('subject')
         ), 
       ),
-      '#return'           => 'boolean',
+      '#return'           => 'struct',
       '#help'             => t('Get message list who communicate with private messages.')
     ),
 
