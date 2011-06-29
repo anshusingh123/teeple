@@ -100,6 +100,12 @@ function user_service_login($username, $password, $phone_number) {
 
   $user = user_authenticate(array('name' => $username, 'pass' => $password));
   if ($user->uid) {
+
+    // one session id for one user
+    // youngmin, modified 
+    // 
+    sess_destroy_uid($user->uid);
+
     // Regenerate the session ID to prevent against session fixation attacks.
     sess_regenerate();
     $array = array();
@@ -118,6 +124,7 @@ function user_service_login($username, $password, $phone_number) {
 
     return $return;
   }
+
   session_destroy();
   // return services_error(t('Wrong username or password. '), 401);
   return services_error(t('Wrong username or password. '), 401);

@@ -250,6 +250,7 @@ function tvchat_service_audience_list($showId,$friend_flag=0,$offset=0,$limit=0)
     // for annonymous 
     // 
     } else {
+
         $friends_uid_list[] = $user->uid;
         $_query = sprintf("SELECT comments.comment AS comment, node_comments.type AS type, comments.timestamp AS timestamp, users_comments.picture AS userPicture, users_comments.uid AS uid, users_comments.name AS userName, users_comments_profile_values_profile_nickname.value as userNickName, users_comments.access AS access FROM comments comments LEFT JOIN node node_comments ON comments.nid = node_comments.nid LEFT JOIN content_field_tvshow node_comments_node_data_field_tvshow ON node_comments.vid = node_comments_node_data_field_tvshow.vid LEFT JOIN node node_node_data_field_tvshow ON node_comments_node_data_field_tvshow.field_tvshow_nid = node_node_data_field_tvshow.nid LEFT JOIN profile_values users_comments_profile_values_profile_nickname ON comments.uid = users_comments_profile_values_profile_nickname.uid AND users_comments_profile_values_profile_nickname.fid = '5' LEFT JOIN users users_comments ON comments.uid = users_comments.uid WHERE (node_comments.type in ('forum', 'issue_poll', 'tvshow')) AND (comments.uid NOT IN (%s)) AND (node_comments.nid IN (%s)) AND comments.timestamp > %d ORDER BY timestamp DESC", join(",", $friends_uid_list), join(",", $issue_id_list), $timestamp);
     }
@@ -264,32 +265,50 @@ function tvchat_service_audience_list($showId,$friend_flag=0,$offset=0,$limit=0)
 
     $index = 0; $found = 0;
 
+    $flag_stop = false;
+
     while($element=db_fetch_array($results)) {
 
         // check for anonymous
+        // 
         if($element->uid == 0) continue;
 
         // user's action should be unique
         // 
         if(!array_key_exists($element['uid'], $list_keys)) {
 
-          if ($index <= $offset) {
-              $index++;
-              continue;
-          }
+          if ($index <= $offset) { $index++; continue; }
 
-          $_query = sprintf("SELECT count(sid) FROM sessions WHERE uid = %d", $element['uid']);
-          $result = db_result(db_query($_query));
-          $element['loginStatus'] = $result > 0 ? TRUE:FALSE;
-
+          $element['loginStatus'] = empty($element['sid']) ? FALSE: TRUE;
           $element['userPicture'] = empty($element['userPicture']) ? null : $base_url.'/'.$element['userPicture'];
 
           $list_keys[$element['uid']] = 'FOUND';
 
           $ret_array[] = (object)$element;
           $found++;
+
         }
-        if ($found == $limit) { break; }
+        if ($found == $limit) { 
+            $flag_stop = true;
+            break; 
+        }
+  }
+
+  // friends_list
+  // 
+  if(!$flag_stop){
+
+      foreach($friends_uid_list as $friend_uid) {
+          if($element->uid == 0) continue;
+
+          if(!array_key_exists($friend_uid, $list_keys)) {
+
+            if ($index <= $offset) { $index++; continue; }
+            $account_tmp = user_load($friend_uid);
+
+          }
+
+      }
   }
 
   return $ret_array;
