@@ -31,7 +31,6 @@ function _count_today_checkin( $nid)
   }
 }
 
-
 /*
 	theme functions
 */
@@ -671,5 +670,4 @@ function _file_upload($fname, $attachment) {
   }
   return NULL;
 }
-
 

@@ -224,7 +224,7 @@ function tvchat_service_upload_contacts($contacts_json) {
   }
 }
 
-function tvchat_service_audience_list($showId,$friend_flag=0,$offset=0,$limit=0) {
+function tvchat_service_audience_list($showId,$friend_flag=0,$offset=0,$limit=20) {
   try{
     global $user;
     global $base_url;
@@ -242,44 +242,47 @@ function tvchat_service_audience_list($showId,$friend_flag=0,$offset=0,$limit=0)
     $before_date = $one_month * 3;
     $timestamp = time() - $before_date;
 
-    // for friend
-    //
+    $_query_tmp = "SELECT comments.comment AS comment, node_comments.type AS type, comments.timestamp AS timestamp, users_comments.picture AS userPicture, users_comments.uid AS uid, users_comments.name AS userName, users_comments_profile_values_profile_nickname.value as userNickName, users_comments.access AS access FROM comments comments LEFT JOIN node node_comments ON comments.nid = node_comments.nid LEFT JOIN content_field_tvshow node_comments_node_data_field_tvshow ON node_comments.vid = node_comments_node_data_field_tvshow.vid LEFT JOIN node node_node_data_field_tvshow ON node_comments_node_data_field_tvshow.field_tvshow_nid = node_node_data_field_tvshow.nid LEFT JOIN profile_values users_comments_profile_values_profile_nickname ON comments.uid = users_comments_profile_values_profile_nickname.uid AND users_comments_profile_values_profile_nickname.fid = '5' LEFT JOIN users users_comments ON comments.uid = users_comments.uid WHERE (node_comments.type in ('forum', 'issue_poll', 'tvshow')) ";
+
     if($friend_flag > 0) {
-        $_query = sprintf("SELECT comments.comment AS comment, node_comments.type AS type, comments.timestamp AS timestamp, users_comments.picture AS userPicture, users_comments.uid AS uid, users_comments.name AS userName, users_comments_profile_values_profile_nickname.value as userNickName, users_comments.access AS access FROM comments comments LEFT JOIN node node_comments ON comments.nid = node_comments.nid LEFT JOIN content_field_tvshow node_comments_node_data_field_tvshow ON node_comments.vid = node_comments_node_data_field_tvshow.vid LEFT JOIN node node_node_data_field_tvshow ON node_comments_node_data_field_tvshow.field_tvshow_nid = node_node_data_field_tvshow.nid LEFT JOIN profile_values users_comments_profile_values_profile_nickname ON comments.uid = users_comments_profile_values_profile_nickname.uid AND users_comments_profile_values_profile_nickname.fid = '5' LEFT JOIN users users_comments ON comments.uid = users_comments.uid WHERE (node_comments.type in ('forum', 'issue_poll', 'tvshow')) AND (comments.uid IN (%s)) AND (node_comments.nid IN (%s)) AND comments.timestamp > %d ORDER BY timestamp DESC", join(",", $friends_uid_list), join(",", $issue_id_list), $timestamp);
+       $where_friends = empty($friends_uid_list) ? "" : sprintf(" AND (comments.uid IN (%s) )", join(',', $friends_uid_list));
 
-    // for annonymous 
-    // 
     } else {
-
-        $friends_uid_list[] = $user->uid;
-        $_query = sprintf("SELECT comments.comment AS comment, node_comments.type AS type, comments.timestamp AS timestamp, users_comments.picture AS userPicture, users_comments.uid AS uid, users_comments.name AS userName, users_comments_profile_values_profile_nickname.value as userNickName, users_comments.access AS access FROM comments comments LEFT JOIN node node_comments ON comments.nid = node_comments.nid LEFT JOIN content_field_tvshow node_comments_node_data_field_tvshow ON node_comments.vid = node_comments_node_data_field_tvshow.vid LEFT JOIN node node_node_data_field_tvshow ON node_comments_node_data_field_tvshow.field_tvshow_nid = node_node_data_field_tvshow.nid LEFT JOIN profile_values users_comments_profile_values_profile_nickname ON comments.uid = users_comments_profile_values_profile_nickname.uid AND users_comments_profile_values_profile_nickname.fid = '5' LEFT JOIN users users_comments ON comments.uid = users_comments.uid WHERE (node_comments.type in ('forum', 'issue_poll', 'tvshow')) AND (comments.uid NOT IN (%s)) AND (node_comments.nid IN (%s)) AND comments.timestamp > %d ORDER BY timestamp DESC", join(",", $friends_uid_list), join(",", $issue_id_list), $timestamp);
+       $friends_uid_list[] = $user->uid;
+       $where_friends = empty($friends_uid_list) ? "" : sprintf(" AND (comments.uid NOT IN (%s) )", join(',', $friends_uid_list));
     }
+    $where_issue = empty($issue_id_list) ?  "" : sprintf(" AND (node_comments.nid IN (%s) )", join(',', $issue_id_list));
+    $where_timestamp = sprintf(" AND comments.timestamp > %d ORDER BY timestamp DESC", $timestamp);
+    $_query = $_query_tmp.$where_friends.$where_issue.$where_timestamp;
+
+    $results = db_query($_query);
 
     $ret_array = array();
     $list_keys = array();
     $ret_element = array();
-    $results = db_query($_query);
 
     $time_interval = variable_get('user_block_seconds_online', 900);
     $curTime = time();
 
     $index = 0; $found = 0;
-
     $flag_stop = false;
 
     while($element=db_fetch_array($results)) {
 
         // check for anonymous
         // 
-        if($element->uid == 0) continue;
+        if($element['uid'] == 0) continue;
 
         // user's action should be unique
         // 
         if(!array_key_exists($element['uid'], $list_keys)) {
 
+
           if ($index <= $offset) { $index++; continue; }
 
-          $element['loginStatus'] = empty($element['sid']) ? FALSE: TRUE;
+          $login_flag = db_result(db_query("SELECT count(sid) FROM {sessions} WHERE uid = %d", $element['uid']));
+
+          $element['loginStatus'] = empty($login_flag) ? FALSE: TRUE;
           $element['userPicture'] = empty($element['userPicture']) ? null : $base_url.'/'.$element['userPicture'];
 
           $list_keys[$element['uid']] = 'FOUND';
@@ -288,27 +291,55 @@ function tvchat_service_audience_list($showId,$friend_flag=0,$offset=0,$limit=0)
           $found++;
 
         }
+
         if ($found == $limit) { 
             $flag_stop = true;
             break; 
         }
   }
 
-  // friends_list
-  // 
-  if(!$flag_stop){
+  if(!$flag_stop && ($friend_flag > 0)) {
+      $add_uid_list = $friends_uid_list;
 
-      foreach($friends_uid_list as $friend_uid) {
-          if($element->uid == 0) continue;
+  } else {
 
-          if(!array_key_exists($friend_uid, $list_keys)) {
+      $_query = "SELECT users.uid AS uid FROM users users ORDER BY access DESC";
+      $result = db_query_range($_query, 0, 50);
 
-            if ($index <= $offset) { $index++; continue; }
-            $account_tmp = user_load($friend_uid);
-
-          }
+      while($element = db_fetch_object($result)) {
+          $add_uid_list[] = $element->uid;
 
       }
+  }
+
+  foreach($add_uid_list as $element_uid) {
+
+      if($element_uid == 0) continue;
+      if(!array_key_exists($element_uid->uid, $list_keys)) {
+
+        if ($index <= $offset) { $index++; continue; }
+        $account_tmp = user_load($element_uid);
+
+        $login_flag = db_result(db_query("SELECT count(sid) FROM {sessions} WHERE uid = %d", $element_uid));
+
+        $element = array("comment" => null, 
+                "type" => null, 
+                "timestamp"=> null, 
+                "uid" => $account_tmp->uid, 
+                "userName" => $account_tmp->name, 
+                "userNickName" => $account_tmp->profile_nickname, 
+                "access" => $account_tmp->access
+        );
+
+        $element['loginStatus'] = empty($login_flag) ? FALSE: TRUE;
+        $element['userPicture'] = empty($element['userPicture']) ? null : $base_url.'/'.$element['userPicture'];
+
+        $ret_array[] = (object)$element;
+        $found++;
+
+      }
+
+      if($found == $limit) { break; }
   }
 
   return $ret_array;
