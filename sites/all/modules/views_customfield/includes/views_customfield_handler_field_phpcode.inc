@@ -96,7 +96,7 @@ class views_customfield_handler_field_phpcode extends views_handler_field {
     else {
       $theme_path = dirname($theme_info->filename);
     }
-  
+
     $output = $this->eval_phpcode($code, $static, $data);
   
     // Recover original theme path.
@@ -115,6 +115,7 @@ class views_customfield_handler_field_phpcode extends views_handler_field {
    */
   function eval_phpcode($code, &$static, $data) {
     ob_start();
+
     print eval('?>'. $code);
     return ob_get_clean();
   }

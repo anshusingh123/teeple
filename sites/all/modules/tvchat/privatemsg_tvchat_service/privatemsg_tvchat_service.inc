@@ -273,7 +273,7 @@ function privatemsg_tvchat_service_get_msg_with_recipient_uid($recipient_uid, $o
 
 // send_with_uids
 //
-function privatemsg_tvchat_service_send_with_uids($recipientUids, $body = NULL, $subject = NULL, $fname, $attachment) {
+function privatemsg_tvchat_service_send_with_uids($recipientUids, $body = NULL, $subject = NULL, $fname, $attachment, $senderUid =0) {
 
   global $user;
   module_load_include('inc', 'privatemsg_service');
@@ -282,7 +282,12 @@ function privatemsg_tvchat_service_send_with_uids($recipientUids, $body = NULL, 
       $attachment = str_replace('"', '', $_POST['attachment']);
   }
 
-  $account  = user_load($user->uid);
+  if(isset($senderUid) && ($senderUid > 0)) {
+    $account = user_load($senderUid);
+  } else {
+    $account  = user_load($user->uid);
+  }
+
   $author = drupal_clone($account);
 
   $ret_array = array();

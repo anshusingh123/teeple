@@ -40,6 +40,12 @@ function user_authentication_service_service() {
             '#type' => 'string',
             '#optional' => false,
             '#description' => 'Authentication phone number'
+         ),
+         array(
+            '#name' => 'country_code',
+            '#type' => 'string',
+            '#optional' => true,
+            '#description' => 'optiona, country code'
          )
       ),
       '#return' => 'int',

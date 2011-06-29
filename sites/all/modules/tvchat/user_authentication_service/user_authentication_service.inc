@@ -24,7 +24,7 @@ function user_authentication_service_send_invite_sms($phone_numbers) {
 
       $SND_MSG = sprintf(variable_get('invite_msg', '친구 %s(%s)분이 Teeple서비스(%s)에 초대하셨습니다.'), $account->profile_nickname, $account->profile_phone_no, $url_shorten);
  
-      $_query = sprintf("INSERT INTO {telink_sms} ( CMP_MSG_ID, CMP_USR_ID, ODR_FG, SMS_GB, USED_CD, MSG_GB, SND_DTTM, SND_PHN_ID, RCV_PHN_ID, CALLBACK, SND_MSG, EXPIRE_VAL, SMS_ST ) values ('%s','%s','%s','%s','%s','%s', '%s', '%s','%s','%s','%s',%d,'%s')", $CMP_MSG_ID, $CMP_USER_ID, $ODR_FG, $SMS_GB, $USER_CD, $MSG_GB, $SND_DTTM, $SND_PHN_ID, $RCV_PHN_ID, $CALLBACK, $SND_MSG, $EXPIRE_VAL, $SMS_ST);
+      $_query = sprintf("INSERT INTO {telink_sms} ( CMP_MSG_ID, CMP_USR_ID, ODR_FG, SMS_GB, USED_CD, MSG_GB, SND_DTTM, SND_PHN_ID, RCV_PHN_ID, CALLBACK, SND_MSG, EXPIRE_VAL, SMS_ST ) values ('%s','%s','%s','%s','%s','%s', '%s', '%s','%s','%s','%s',%d,'%s')", $CMP_MSG_ID, $CMP_USR_ID, $ODR_FG, $SMS_GB, $USER_CD, $MSG_GB, $SND_DTTM, $SND_PHN_ID, $RCV_PHN_ID, $CALLBACK, $SND_MSG, $EXPIRE_VAL, $SMS_ST);
 
       $ret = db_query($_query);
       if (isset($ret)) { return true; }
@@ -32,8 +32,7 @@ function user_authentication_service_send_invite_sms($phone_numbers) {
   return services_error("Invitation SMS couldn't be sent", 411);
 }
 
-function user_authentication_service_send_auth_sms($phone_number) {
-
+function user_authentication_service_send_auth_sms($phone_number, $country_code=null){
   $rand = rand(100000, 999999);
   $_SESSION["AUTH_NUMBER"] = $rand;
 
@@ -44,19 +43,32 @@ function user_authentication_service_send_auth_sms($phone_number) {
   $ODR_FG = '1';
   $SMS_GB = '1';
   $USED_CD = '00';
-  $MSG_GB = 'A';
+
+  if(isset($country_code) && ($country_code != '82') && (strlen($country_code)>0)) {
+    $MSG_GB = 'C';
+    $SND_PHN_ID = variable_get('snd_phn_id_cellphone', '821087259388');
+    $SND_MSG = sprintf('authentication SMS[%s].', $rand);
+
+    if($phone_number[0] == '0') { $phone_number = substr($phone_number, 1); };
+    $RCV_PHN_ID = $country_code.$phone_number;
+
+  } else {
+    $MSG_GB = 'A';
+    $SND_PHN_ID = variable_get('snd_phn_id', '0317106200');
+    $SND_MSG = sprintf(variable_get('auth_msg', '귀하의 인증번호는 [%s] 입니다.'), $rand);
+
+    if($phone_number[0] != '0') { $phone_number = '0'.$phone_number; };
+    $RCV_PHN_ID = $phone_number;
+  }
+
   $SND_DTTM = date('YmdHis', $curTime);
-  $SND_PHN_ID = variable_get('snd_phn_id', '0317106200');
-  $RCV_PHN_ID = $phone_number;
-  $CALLBACK = variable_get('callback', '0317106200');
-  $SND_MSG = sprintf(variable_get('auth_msg', '귀하의 인증번호는 ["%s"] 입니다.'), $rand);
+  $CALLBACK = $SND_PHN_ID;
   $EXPIRE_VAL = 0;
   $SMS_ST = '0';
-  // $RSLT_VAL = 99;
 
   $_query = sprintf("INSERT INTO {telink_sms} (CMP_MSG_ID, CMP_USR_ID, ODR_FG, SMS_GB, USED_CD, MSG_GB, SND_DTTM, SND_PHN_ID, RCV_PHN_ID, CALLBACK, SND_MSG, EXPIRE_VAL, SMS_ST, AUTH_NUMBER ) values ('%s','%s','%s','%s','%s','%s', '%s', '%s','%s','%s','%s',%d,'%s', %d)", $CMP_MSG_ID, $CMP_USR_ID, $ODR_FG, $SMS_GB, $USER_CD, $MSG_GB, $SND_DTTM, $SND_PHN_ID, $RCV_PHN_ID, $CALLBACK, $SND_MSG, $EXPIRE_VAL, $SMS_ST, $rand);
-
   $ret = db_query($_query);
+
   if (isset($ret)) { return true; }
 
   return serivces_error(t("Could not send SMS to recipient number."), 415);

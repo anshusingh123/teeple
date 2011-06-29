@@ -103,6 +103,8 @@ function tvchat_service_comment_upload_save($fname) {
 //
 function tvchat_service_upload_contacts($contacts_json) {
 
+  global $user;
+  module_load_include('inc', 'tvchat');
   module_load_include('inc', 'user_relationship_service');
   module_load_include('inc', 'user_service');
   module_load_include('inc', 'user_tvchat_service');
@@ -114,14 +116,13 @@ function tvchat_service_upload_contacts($contacts_json) {
     $fr_list = array();
     $contacts_array = array();
 
-    // $contacts_array = $contacts_json;
     if (is_array($contacts_json)) {
         $contacts_array = array_unique($contacts_json);
     } else {
         $contacts_array = array_unique(json_decode($contacts_json, TRUE));
     }
 
-    // make phone number list for db query
+    // make phone number list
     //
     $phone_name_list = array();
     $phone_list = array();
@@ -199,6 +200,19 @@ function tvchat_service_upload_contacts($contacts_json) {
         user_relationship_service_request("1", $ret_array['uid'], 'Friend');
     }
 
+    $friends_uids = tvchat_friends_uid_list();
+    foreach ($friends_uids as $uid) {
+        $account_tmp = user_load($uid);
+
+        $phone_name_list[$account_tmp->profile_phone_no]['phone'] = $account_tmp->profile_phone_no;
+        $phone_name_list[$account_tmp->profile_phone_no]['userId'] = $account_tmp->uid;
+        $phone_name_list[$account_tmp->profile_phone_no]['userName'] = $account_tmp->name;
+        $phone_name_list[$account_tmp->profile_phone_no]['userPicture'] = empty($account_tmp->picture) ? null : $base_url.'/'.$account_tmp->picture;
+        $phone_name_list[$account_tmp->profile_phone_no]['uid'] = $account_tmp->uid;
+        $phone_name_list[$account_tmp->profile_phone_no]['userNickName'] = empty($account_tmp->profile_nickname) ? null : $account_tmp->profile_nickname;
+        $phone_name_list[$account_tmp->profile_phone_no]['exist'] = 'yes';
+    }
+
     $ret_contacts = array();
     foreach ($phone_name_list as $phone_element) {
         $ret_contacts[] = (object)$phone_element;
@@ -252,6 +266,9 @@ function tvchat_service_audience_list($showId,$friend_flag=0,$offset=0,$limit=0)
 
     while($element=db_fetch_array($results)) {
 
+        // check for anonymous
+        if($element->uid == 0) continue;
+
         // user's action should be unique
         // 
         if(!array_key_exists($element['uid'], $list_keys)) {
@@ -265,15 +282,16 @@ function tvchat_service_audience_list($showId,$friend_flag=0,$offset=0,$limit=0)
           $result = db_result(db_query($_query));
           $element['loginStatus'] = $result > 0 ? TRUE:FALSE;
 
-          if(isset($element['userPicture']) && (strlen($element['userPicture']) > 0)) {
-              $element['userPicture'] = $base_url.'/'.$element['userPicture'];
-          }
+          $element['userPicture'] = empty($element['userPicture']) ? null : $base_url.'/'.$element['userPicture'];
+
           $list_keys[$element['uid']] = 'FOUND';
+
           $ret_array[] = (object)$element;
           $found++;
         }
         if ($found == $limit) { break; }
   }
+
   return $ret_array;
 
   } catch (Exception $ex) {

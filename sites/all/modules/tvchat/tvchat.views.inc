@@ -137,6 +137,20 @@ function tvchat_views_data() {
     ),
   );
 
+  $data['tvchat_ranking_daily']['timestamp'] = array(
+    'title' => t('timestamp'),
+    'help' => t("timestamp"),
+    'field' => array(
+        'handler' => 'views_handler_field_date',
+    ),
+    'sort' => array(
+        'handler' => 'views_handler_sort_date',
+    ),
+    'filter' => array(
+        'handler' => 'views_handler_filter_date',
+    ),
+   );
+
   // The 'group' index will be used as a prefix in the UI for any of this
   // table's fields, sort criteria, etc. so it's easy to tell where they came
   // from.
@@ -272,7 +286,22 @@ function tvchat_views_data() {
       'handler' => 'views_handler_argument_numeric',
     ),
   );
- 
+
+   $data['tvchat_ranking_weekly']['timestamp'] = array(
+    'title' => t('timestamp'),
+    'help' => t("timestamp"),
+    'field' => array(
+        'handler' => 'views_handler_field_date',
+    ),
+    'sort' => array(
+        'handler' => 'views_handler_sort_date',
+    ),
+    'filter' => array(
+        'handler' => 'views_handler_filter_date',
+    ),
+   );
+
+
   return $data;
 }
 

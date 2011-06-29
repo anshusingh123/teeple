@@ -152,13 +152,19 @@ function privatemsg_tvchat_service_service() {
           '#name'         => 'fname',
           '#type'         => 'string',
           '#optional'     => TRUE,
-          '#description'  => t('subject')
+          '#description'  => t('file name')
         ), 
         array(
           '#name'         => 'attachment',
           '#type'         => 'string',
           '#optional'     => TRUE,
-          '#description'  => t('subject')
+          '#description'  => t('attachment')
+        ), 
+        array(
+          '#name'         => 'sender_uid',
+          '#type'         => 'int',
+          '#optional'     => TRUE,
+          '#description'  => t('sender uid')
         ), 
       ),
       '#return'           => 'struct',

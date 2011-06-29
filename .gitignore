@@ -1,3 +1,4 @@
 sites/default/files/css/*
 sites/default/files/js/*
 *.swp
+/var/www/tvchat/smsgw_module/linux_sms_module/conf/unix/config.cfg
