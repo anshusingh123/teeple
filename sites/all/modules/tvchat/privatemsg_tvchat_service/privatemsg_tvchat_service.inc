@@ -481,16 +481,14 @@ function privatemsg_tvchat_service_get_thread($thread_id, $offset =0){
         if ($message['deleted'] != 0) { continue; };
         $ret_array[] = array(
             'thread_id' => $message['thread_id'],
+            'threadId' => $message['thread_id'],
             'mid' => $message['mid'],
-            'files' => $message['files'],
             'authorId' => $message['author']->uid,
             'body' => $message['body'],
+            'files' => $message['files'],
             'postDate' => date('Y-m-d H:i', $message['timestamp'])
         );
     }
 
     return $ret_array;
-
 }
-
-
