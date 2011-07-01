@@ -423,8 +423,8 @@ function privatemsg_tvchat_service_get_thread($thread_id, $offset =0){
     $thread['messages'] = array_values($thread['messages']);
 
     foreach($thread['messages'] AS $message) {
-        if ($message['is_new'] != 0) { continue; };
-        $postDate = date('Y-m-d H:m', $message['timestamp']);
+        if ($message['deleted'] != 0) { continue; };
+        $postDate = date('Y-m-d H:i', $message['timestamp']);
         $ret_array[] = array(
             'thread_id' => $message['thread_id'],
             'mid' => $message['mid'],

@@ -580,6 +580,7 @@ function tvchat_file_save_upload($source, $validators = array(), $dest = FALSE, 
       array_unshift($args, $file);
       // Make sure $file is passed around by reference.
       $args[0] = &$file;
+
       $errors = array_merge($errors, call_user_func_array($function, $args));
     }
 
@@ -603,8 +604,9 @@ function tvchat_file_save_upload($source, $validators = array(), $dest = FALSE, 
       else {
         $message .= ' '. array_pop($errors);
       }
-      form_set_error($source, $message);
-      return 0;
+      // form_set_error($source, $message);
+      // return 0;
+      return -2;
     }
 
     // Move uploaded files from PHP's upload_tmp_dir to Drupal's temporary directory.

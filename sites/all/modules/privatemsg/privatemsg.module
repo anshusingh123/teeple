@@ -351,8 +351,8 @@ function privatemsg_menu_access($permission = 'read privatemsg', $deny_if_other 
      // If viewing the messages of a different user, use that uid.
      $url_prefix = variable_get('privatemsg_url_prefix', 'messages');
      $url_prefix_user_arg_position = array_search('%user', explode('/', $url_prefix));
-     if (((int)arg($url_prefix_user_arg_position)) > 0) {
-       $uid = arg($url_prefix_user_arg_position);
+     if ($account = menu_get_object('user', $url_prefix_user_arg_position)) {
+       $uid = $account->uid;
      }
    }
    return str_replace('%user', $uid, variable_get('privatemsg_url_prefix', 'messages'));
@@ -612,15 +612,41 @@ function privatemsg_cron() {
     }
   }
 
-  $result = db_query_range("SELECT pmi.recipient, pmi.type, pmi.mid FROM {pm_index} pmi WHERE pmi.type NOT IN ('user', 'hidden') AND pmi.is_new = 1 ORDER BY mid ASC", 0, 10);
   // Number of user ids to process for this cron run.
   $total_remaining = variable_get('privatemgs_cron_recipient_per_run', 1000);
   $current_process = variable_get('privatemsg_cron_recipient_process', array());
+
+  // Instead of doing the order by in the database, which can be slow, we load
+  // all results and the do the handling there. Additionally, explicitly specify
+  // the desired types. If there are more than a few dozen results the site is
+  // unhealthy anyway because this cron is unable to keep up with the
+  // unprocessed recipients.
+  $rows = array();
+
+  // Get all type keys except user.
+  $types = privatemsg_recipient_get_types();
+  unset($types['user']);
+  $types = array_keys($types);
+
+  // If there are no other recipient types, there is nothing to do.
+  if (empty($types)) {
+    return;
+  }
+
+  $result = db_query("SELECT pmi.recipient, pmi.type, pmi.mid FROM {pm_index} pmi WHERE pmi.type IN (" . db_placeholders($types, 'varchar') . ") AND pmi.is_new = 1", $types);
   while ($row = db_fetch_object($result)) {
-    $type = privatemsg_recipient_get_type($row->type);
-    if (!$type) {
-      continue;
+    // If this is equal to the row that is currently processed, add it first in
+    // the array.
+    if (!empty($current_process) && $current_process['mid'] == $row->mid && $current_process['type'] == $row->type && $current_process['recipient'] == $row->recipient) {
+      array_unshift($rows, $row);
     }
+    else {
+      $rows[] = $row;
+    }
+  }
+
+  foreach ($rows as $row) {
+    $type = privatemsg_recipient_get_type($row->type);
     if (isset($type['load']) && is_callable($type['load'])) {
       $loaded = $type['load'](array($row->recipient));
       if (empty($loaded)) {
@@ -1070,7 +1096,10 @@ function privatemsg_sql_load(&$fragments, $pmids, $account = NULL) {
   $fragments['select'][]      = "pm.body";
   $fragments['select'][]      = "pm.timestamp";
   $fragments['select'][]      = "pm.format";
-  $fragments['select'][]      = "pmi.is_new";
+  if ($account) {
+    // The is_new only has a meaning if querying for a specific account.
+    $fragments['select'][]      = "pmi.is_new";
+  }
   $fragments['select'][]      = "pmi.thread_id";
 
   $fragments['inner_join'][]  = 'INNER JOIN {pm_index} pmi ON pm.mid = pmi.mid';
@@ -1080,6 +1109,17 @@ function privatemsg_sql_load(&$fragments, $pmids, $account = NULL) {
   if ($account) {
     $fragments['where'][]      = "pmi.recipient = %d AND pmi.type IN ('user', 'hidden')";
     $fragments['query_args']['where'][] = $account->uid;
+  }
+  else {
+    // Avoid loading the message multiple times due to the join.
+    // @todo: Find a better way to do this, move thread_id to pm_message?
+    $fragments['group_by'][]      = "pm.mid";
+    $fragments['group_by'][]      = "pm.author";
+    $fragments['group_by'][]      = "pm.subject";
+    $fragments['group_by'][]      = "pm.body";
+    $fragments['group_by'][]      = "pm.timestamp";
+    $fragments['group_by'][]      = "pm.format";
+    $fragments['group_by'][]      = "pmi.thread_id";
   }
   $fragments['order_by'][] = 'pm.timestamp ASC';
   $fragments['order_by'][] = 'pm.mid ASC';
@@ -1245,14 +1285,14 @@ function privatemsg_sql_deleted(&$fragments, $days) {
 
 function privatemsg_sql_privatemsg_query_settings(&$fragments, $setting, $query_ids) {
   $fragments['primary_table'] = '{pm_setting} pms';
-  
+
   $fragments['select'][] = 'pms.type';
   $fragments['select'][] = 'pms.id';
   $fragments['select'][] = 'pms.value';
-  
+
   $fragments['where'][] = "pms.setting = '%s'";
   $fragments['query_args']['where'][] = $setting;
-  
+
   $ids_condition = array();
   foreach ($query_ids as $type => $type_ids) {
     $ids_condition[] = "pms.type = '%s' AND pms.id IN (" . db_placeholders($type_ids) . ")";
@@ -1575,7 +1615,6 @@ function privatemsg_new_thread($recipients, $subject, $body = NULL, $options = a
   );
 
   $validated = _privatemsg_validate_message($message);
-
   if ($validated['success']) {
     $validated['message'] = _privatemsg_send($message);
     if ($validated['message'] !== FALSE) {
@@ -2591,13 +2630,14 @@ function privatemsg_recipient_get_type($type) {
  *   If TRUE, adds the recipient, if FALSE, removes it.
  */
 function privatemsg_message_change_recipient($mid, $uid, $type = 'user', $add = TRUE) {
-
-  $thread_id = db_result(db_query('SELECT thread_id FROM {pm_index} WHERE mid = %d', $mid));
+  // The message is statically cached, so only a single load is necessary.
+  $message = privatemsg_message_load($mid);
+  $thread_id = $message['thread_id'];
   if ($add) {
     // Only add the recipient if he does not block the author.
-    $author_uid = db_result(db_query('SELECT author FROM {pm_message} WHERE mid = %d', $mid));
     $recipient = privatemsg_user_load($uid);
-    $user_blocked = module_invoke_all('privatemsg_block_message', privatemsg_user_load($author_uid), array(privatemsg_recipient_key($recipient) => $recipient));
+    $context = ($thread_id == $mid) ? array() : array('thread_id' => $thread_id);
+    $user_blocked = module_invoke_all('privatemsg_block_message', $message['author'], array(privatemsg_recipient_key($recipient) => $recipient), $context);
     if (count($user_blocked) <> 0) {
       return;
     }

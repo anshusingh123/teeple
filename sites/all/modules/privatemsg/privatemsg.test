@@ -954,6 +954,9 @@ class PrivatemsgURLPrefixTestCase extends DrupalWebTestCase {
     $recipient = $this->drupalCreateUser(array('write privatemsg', 'read privatemsg', 'tag private messages', 'create private message tags'));
     $admin     = $this->drupalCreateUser(array('write privatemsg', 'read privatemsg', 'read all private messages', 'administer privatemsg settings', 'administer blocks'));
 
+    // Create a node that is used later to test link generation.
+    $node = $this->drupalCreateNode();
+
     // Login as admin, set prefix, and set blocks.
     $this->drupalLogin($admin);
     $settings = array(
@@ -1000,11 +1003,16 @@ class PrivatemsgURLPrefixTestCase extends DrupalWebTestCase {
 
     // Login as recipient.
     $this->drupalLogin($recipient);
+
     $this->assertText(t('You have 1 unread message'), t('New message text found after login.'));
+
     $this->clickLink(t('1 unread message'));
     $this->assertText($edit['subject'], t('Message found after clicking on login message link.'));
 
-    $this->drupalGet(privatemsg_get_dynamic_url_prefix($recipient->uid));
+    // Go to the previously created node to verify that it does not use the nid
+    // as the user id.
+    $this->drupalGet('node/' . $node->nid);
+    $this->clickLink(t('You have a new message! Click here to read it.'));
     $this->assertText($edit['subject'], t('Message found on root message list page.'));
 
     // Try the private message block links.

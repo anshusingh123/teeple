@@ -389,8 +389,6 @@ function pm_email_notify_user($op, &$edit, &$account, $category = NULL) {
     case 'delete':
       privatemsg_del_setting('user', $account->uid, 'email_notify_level');
       privatemsg_del_setting('user', $account->uid, 'email_notify_only_user');
-
-      db_query("DELETE FROM {pm_email_notify} WHERE user_id = %d", $account->uid);
       break;
   }
 }

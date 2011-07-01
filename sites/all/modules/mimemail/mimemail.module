@@ -1,4 +1,4 @@
-<?php /* $Id$ */
+<?php
 
 /**
  * @file
@@ -90,7 +90,7 @@ function mimemail_mail($key, &$message, $params) {
   $attachments = array();
   $attachments_string = trim($params['attachments']);
   if (!empty($attachments_string)) {
-    $attachment_lines = array_filter(explode('\n', trim($attachments_string)));
+    $attachment_lines = array_filter(explode("\n", trim($attachments_string)));
     foreach ($attachment_lines as $key => $attachment_line) {
       $attachment = explode(':', trim($attachment_line), 2);
       $attachments[] = array(
@@ -426,7 +426,7 @@ if (strpos(variable_get('smtp_library', ''), 'mimemail') !== FALSE
     $to = $message['to'];
     $subject = $message['subject'];
 
-    if (preg_match('/plain/',$message['headers']['Content-Type'])) {
+    if (preg_match('/plain/', $message['headers']['Content-Type'])) {
       $format = variable_get('mimemail_format', FILTER_FORMAT_DEFAULT);
       $body = check_markup($message['body'], $format, FALSE);
     }

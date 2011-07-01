@@ -79,10 +79,7 @@ function privatemsg_attachments_form_privatemsg_new_alter(&$form, &$form_state) 
       $form['attachments']['wrapper'] += _privatemsg_attachments_form($files);
       // Execute submit function as validate, to have it executed before
       // $form_state['validate_built_message'] is created.
-      array_unshift($form['submit']['#validate'], '_privatemsg_attachments_upload_submit');
-      if (isset($form['preview'])) {
-        array_unshift($form['preview']['#validate'], '_privatemsg_attachments_upload_submit');
-      }
+      array_unshift($form['#validate'], '_privatemsg_attachments_upload_submit');
 
       $form['#attributes']['enctype'] = 'multipart/form-data';
     }
@@ -174,7 +171,6 @@ function privatemsg_attachments_menu() {
  */
 function privatemsg_attachments_upload_js() {
   $form_state = array('values' => $_POST, 'storage' => NULL, 'submitted' => FALSE);
-
   // Load the form from the Form API cache.
   if (!($cached_form = form_get_cache($_POST['form_build_id'], $form_state)) || !isset($cached_form['attachments'])) {
     form_set_error('form_token', t('Validation error, please try again. If this error persists, please contact the site administrator.'));
@@ -417,7 +413,6 @@ function phptemplate_privatemsg_list_field__attachment($thread) {
  */
 function privatemsg_attachments_file_download($filepath) {
   global $user;
-
   $filepath = file_create_path($filepath);
   $result = db_query("SELECT f.*, pma.mid FROM {files} f INNER JOIN {pm_attachments} pma ON f.fid = pma.fid WHERE filepath = '%s'", $filepath);
   if ($file = db_fetch_object($result)) {

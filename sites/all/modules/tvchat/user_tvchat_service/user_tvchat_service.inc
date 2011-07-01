@@ -88,13 +88,14 @@ function user_tvchat_service_save_new($account, $fname, $picture) {
     return services_error(implode("\n", $errors), 401);
   }
   else {
-
-      if (isset($fname) && isset($picture)) {
+      if (!empty($fname) && !empty($picture)) {
         $file = _user_tvchat_validate_picture($fname,$picture, $form_state['user']->uid);
 
-        if(!isset($file)) {
-            return services_error(t('User Picture Save Error'), 405);
+        if($file == -1) {
+            return -2;
+            // return services_error(t('User Picture Save Error'), 405);
         } else {
+
             $update_set = sprintf("picture = '%s'", $file->filepath);
             $_query = sprintf("UPDATE {users} SET picture = '%s' WHERE uid = %d", $file->filepath, $form_state['user']->uid);
             db_query ($_query);
@@ -143,10 +144,10 @@ function _user_account_update($email=null, $fname=null, $picture=null) {
   if($category == 'account') { $ret = user_save($account, $edit, $category); }
   if(!isset($ret)) { return -1; }
 
-  if (isset($fname) && isset($picture) && (strlen($fname) > 0) && (strlen($picture) > 0)) {
-    $file = _user_tvchat_validate_picture($fname,$picture, $user->uid);
+  if (!empty($picture) && !empty($fname)) {
+    $file = _user_tvchat_validate_picture($fname,$picture,$user->uid);
 
-    if(!isset($file)) {
+    if(empty($file)) {
         return -1;
         // return services_error(t('User Picture Save Error'), 405);
     }
@@ -178,7 +179,10 @@ function _user_tvchat_validate_picture($fname, $attachment, $uid) {
     $_FILES['files']['error']['user_picture_upload'] = 0;
     $_FILES['files']['size']['user_picture_upload'] = $file->filesize;
 
-    if ($file = tvchat_file_save_upload('user_picture_upload', $validators, file_directory_path() . $dir)) {
+
+    $file = tvchat_file_save_upload('user_picture_upload', $validators, file_directory_path() . $dir);
+
+    if (isset($file) && ($file != -2)){
         $file->list = 1;
         $file->description = $file->filename;
         $file->weight = 0;
@@ -186,18 +190,20 @@ function _user_tvchat_validate_picture($fname, $attachment, $uid) {
     }
   }
 
-  if (isset($file)) {
+  if (isset($file) && $file != -2) {
     $info = image_get_info($file->filepath);
+
     $destination = variable_get('user_picture_path', 'pictures').'/picture-'.$uid.'.'.$info['extension'];
 
     if (file_copy($file, $destination, FILE_EXISTS_REPLACE)) {
-
         return $file;
     }
     else {
-        service_error(t('File Save Error'), 500);
+        return -2;
+        // service_error(t('File Save Error'), 500);
     }
-  }
+  } 
+  return -2;
 }
 
 /**
@@ -366,7 +372,7 @@ function user_tvchat_service_signup($nick, $email, $phone_number, $fname=null, $
       $account_tmp->mail = $email;
 
       $uid_approved = user_tvchat_service_save_new($account_tmp, $fname, $picture);
-      if ($uid_approved < 0) {
+      if ($uid_approved == -1) {
         return services_error(t('User cannot be created'));
        }
        $user = user_load($uid_approved);
