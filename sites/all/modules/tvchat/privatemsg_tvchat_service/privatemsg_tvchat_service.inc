@@ -291,39 +291,9 @@ function privatemsg_tvchat_service_get_msg_with_recipient_uid($recipient_uid, $o
 
     $thread_id = _get_thread_id_by_uid($user->uid, $recipient_uid);
 
-    if (isset($thread_id) && count($thread_id) > 0) {
+    $returns = privatemsg_tvchat_service_get_thread($thread_id, $offset);
 
-        // use this query instead of privatemsg_thread_load  for performance
-        // 
-        $_query = sprintf("SELECT mid, author, subject, body, timestamp  FROM pm_message WHERE mid in (SELECT mid FROM pm_index WHERE thread_id = %d) order by timestamp DESC", $thread_id);
-
-        if(!empty($offset)) {
-            $rows = (int)db_result(db_query($_query));
-            $result = db_query_range($_query, $offset, $rows);
-        }
-        else {
-            // No paging, we are retrieving everything.
-            $result = db_query($_query);
-        }
-
-        while ($element = db_fetch_object($result)) {
-
-            $returns[]  = array(
-                'threadId'  => $thread_id,
-                'authorId'  => $element->author,
-                'body'      => $element->body,
-                'postDate'  => date('Y-m-d H:i', $element->timestamp)
-            );
-        }
-
-        if(empty($returns)) {
-            return services_error(t('No message with this recipient.'), 403);
-        } else {
-        // $ret_array = privatemsg_thread_load($thread_id, $account, $offset);
-            return $returns;
-        }
-    }
-    return services_error(t('No message with recipient.'), 403);
+    return $returns;
 }
 
 // send_with_uids
@@ -481,7 +451,6 @@ function privatemsg_tvchat_service_get_thread($thread_id, $offset =0){
         if ($message['deleted'] != 0) { continue; };
         $ret_array[] = array(
             'thread_id' => $message['thread_id'],
-            'threadId' => $message['thread_id'],
             'mid' => $message['mid'],
             'authorId' => $message['author']->uid,
             'body' => $message['body'],
