@@ -6,7 +6,77 @@
  * @file
  *  Link general private message module functionalities to services module.
  */
- 
+
+function _send_to_APNS($deviceToken, $subject, $badge) {
+  $query_string = sprintf("deviceToken=%s&subject=%s&badge=%d", $deviceToken, $subject, $badge);
+
+  $request_uri = variable_get('apns_request_url', 'http://newbiz.uangel.com/tvchat/ApnsPHP/sample_push.php');
+
+  $result = drupal_http_request(
+      url($request_uri, array(absolute => TRUE)),
+      array('Content-Type' => 'application/x-www-form-urlencoded'),
+          'POST',
+          $query_string);
+
+  if ($result->code== '200') {
+        watchdog('privatemsg_service_send', 'APNS: Message Delivery Success');
+
+  } else {
+        watchdog('privatemsg_service_send', 'APNS: Message Delivery Error');
+
+  }
+}
+
+function _message_insert($file, $mid) {
+  if ($file->new) {
+    db_query("INSERT INTO {pm_attachments} (fid, mid, list, description, weight) VALUES (%d, %d, %d, '%s', %d)", $file->fid, $mid, $file->list, $file->description, $file->weight);
+    file_set_status($file, FILE_STATUS_PERMANENT);
+  }
+}
+
+// message save upload
+//
+function _message_save_upload($fname, $attachment) {
+  global $user;
+  module_load_include('inc', 'tvchat');
+
+  $limits = _upload_file_limits($user);
+  $validators = array(
+    'file_validate_extensions' => array($limits['extensions']),
+    'file_validate_image_resolution' => array($limits['resolution']),
+    'file_validate_size' => array($limits['file_size'], $limits['user_size']),
+  );
+
+  // Save new file uploads.
+  //
+  $dir = variable_get('privatemsg_attachements_upload_air', '');
+  if (!empty($dir) && $dir[0] !== '/') {
+    $dir = '/' . $dir;
+  }
+
+  $file = _file_upload($fname, $attachment);
+
+  if(isset($file) && ($file->filesize > 0)) {
+
+    $_FILES['files']['name']['privatemsg_message_upload'] = $file->filename;
+    $_FILES['files']['type']['privatemsg_message_upload'] = $file->filemime;
+    $_FILES['files']['tmp_name']['privatemsg_message_upload'] = $file->filepath;
+    $_FILES['files']['error']['privatemsg_message_upload'] = 0;
+    $_FILES['files']['size']['privatemsg_message_upload'] = $file->filesize;
+
+    if (user_access('upload private message attachments') && ($file = tvchat_file_save_upload('privatemsg_message_upload', $validators, file_directory_path() . $dir))) {
+        $file->list = variable_get('upload_list_default', 1);
+        $file->description = $file->filename;
+        $file->weight = 0;
+        $file->new = TRUE;
+    }
+    return $file;
+
+  } else {
+
+    return  NULL;
+  }
+}
 // number of participant_uid should be = 1
 //
 function _get_thread_id_by_uid($author_id, $recipient_uid) {
@@ -27,7 +97,7 @@ function _get_thread_id_by_uid($author_id, $recipient_uid) {
       }
   }
 
-  return $returns;
+  return -1;
 }
 
 function _get_thread_id_by_uids($author_id, $recipient_uids) {
@@ -63,25 +133,12 @@ function _get_participent_uids_by_thread_id($thread_id){
     return $participants;
 }
 
-function _send_to_APNS($deviceToken, $subject, $badge) {
+function privatemsg_tvchat_service_get_thread_id_for_friend($friend_uid, $author_id=0) {
+   global $user;
+   if($author_id ==0) { $author_id = $user->uid; }
+   $ret =  _get_thread_id_by_uid($author_id, $recipient_uid);
 
-  $query_string = sprintf("deviceToken=%s&subject=%s&badge=%d", $deviceToken, $subject, $badge);
-
-  $request_uri = variable_get('apns_request_url', 'http://newbiz.uangel.com/tvchat/ApnsPHP/sample_push.php');
-
-  $result = drupal_http_request(
-      url($request_uri, array(absolute => TRUE)),
-      array('Content-Type' => 'application/x-www-form-urlencoded'),
-          'POST',
-          $query_string);
-
-  if ($result->code== '200') {
-        watchdog('privatemsg_service_send', 'APNS: Message Delivery Success');
-
-  } else {
-        watchdog('privatemsg_service_send', 'APNS: Message Delivery Error');
-
-  }
+   return $ret;
 }
 
 /**
@@ -117,7 +174,7 @@ function privatemsg_tvchat_service_get_uids($uid=0) {
   $index = 0;
   while ($element = db_fetch_object($results)) {
 
-    // list_pm_temp
+    // views(list_pm_temp)
     //
     $_query = sprintf("SELECT pm_message.mid AS mid, users_pm_message_profile_values_profile_nickname.value AS nickname, users_pm_message_profile_values_profile_nickname.uid AS author, pm_message.subject AS subject, pm_message.body AS body, users_pm_message.picture AS picture, pm_message.timestamp AS postDate FROM pm_message pm_message  LEFT JOIN users users_pm_message ON pm_message.author = users_pm_message.uid LEFT JOIN profile_values users_pm_message_profile_values_profile_nickname ON users_pm_message.uid = users_pm_message_profile_values_profile_nickname.uid AND users_pm_message_profile_values_profile_nickname.fid = '5' WHERE pm_message.mid = %d", $element->mid);
     $message = db_fetch_object(db_query($_query));
@@ -141,12 +198,7 @@ function privatemsg_tvchat_service_get_uids($uid=0) {
         $list_participants[] = array('uid' => $participant, 'nickName'=> $temp_user->profile_nickname);
       }
 
-      if (isset($message->picture) && (strlen($message->picture) > 0)) {
-        $picture = $base_url.'/'.$message->picture;
-      } else {
-        $picture = null;
-      }
-      $postDate = date('Y-m-d H:i', $message->postDate);
+      $picture = empty($message->picture) ? null: $base_url.'/'.$message->picture;
 
       $returns[] = array(
         'thread_id'     => $element->thread_id,
@@ -156,7 +208,7 @@ function privatemsg_tvchat_service_get_uids($uid=0) {
         'picture'       => $picture,
         'authorId'      => $message->author,
         'body'          => $message->body,
-        'postDate'      => $postDate
+        'postDate'      => date('Y-m-d H:i', $message->postDate)
      );
     };
   };
@@ -224,7 +276,8 @@ function privatemsg_tvchat_service_get_msg($fr_uid, $uid=0, $offset=0, $limit=0)
         'authorId' => $message->author,
         'subject'  => $message->subject,
         'body' => $message->body,
-        'timestamp' => $postDate
+        'timestamp' => $postDate,
+        'postDate' => $postDate,
       );
     };
   };
@@ -255,18 +308,20 @@ function privatemsg_tvchat_service_get_msg_with_recipient_uid($recipient_uid, $o
 
         while ($element = db_fetch_object($result)) {
 
-            $postDate = date('Y-m-d H:i', $element->timestamp);
-
             $returns[]  = array(
+                'threadId'  => $thread_id,
                 'authorId'  => $element->author,
-                'subject'   => $element->subject,
                 'body'      => $element->body,
-                'postDate'  => $postDate
+                'postDate'  => date('Y-m-d H:i', $element->timestamp)
             );
         }
 
+        if(empty($returns)) {
+            return services_error(t('No message with this recipient.'), 403);
+        } else {
         // $ret_array = privatemsg_thread_load($thread_id, $account, $offset);
-        return $returns;
+            return $returns;
+        }
     }
     return services_error(t('No message with recipient.'), 403);
 }
@@ -424,14 +479,13 @@ function privatemsg_tvchat_service_get_thread($thread_id, $offset =0){
 
     foreach($thread['messages'] AS $message) {
         if ($message['deleted'] != 0) { continue; };
-        $postDate = date('Y-m-d H:i', $message['timestamp']);
         $ret_array[] = array(
             'thread_id' => $message['thread_id'],
             'mid' => $message['mid'],
             'files' => $message['files'],
             'authorId' => $message['author']->uid,
             'body' => $message['body'],
-            'postDate' => $postDate
+            'postDate' => date('Y-m-d H:i', $message['timestamp'])
         );
     }
 
@@ -439,53 +493,4 @@ function privatemsg_tvchat_service_get_thread($thread_id, $offset =0){
 
 }
 
-function _message_insert($file, $mid) {
-  if ($file->new) {
-    db_query("INSERT INTO {pm_attachments} (fid, mid, list, description, weight) VALUES (%d, %d, %d, '%s', %d)", $file->fid, $mid, $file->list, $file->description, $file->weight);
-    file_set_status($file, FILE_STATUS_PERMANENT);
-  }
-}
 
-// message save upload
-//
-function _message_save_upload($fname, $attachment) {
-  global $user;
-  module_load_include('inc', 'tvchat');
-
-  $limits = _upload_file_limits($user);
-  $validators = array(
-    'file_validate_extensions' => array($limits['extensions']),
-    'file_validate_image_resolution' => array($limits['resolution']),
-    'file_validate_size' => array($limits['file_size'], $limits['user_size']),
-  );
-
-  // Save new file uploads.
-  //
-  $dir = variable_get('privatemsg_attachements_upload_air', '');
-  if (!empty($dir) && $dir[0] !== '/') {
-    $dir = '/' . $dir;
-  }
-
-  $file = _file_upload($fname, $attachment);
-
-  if(isset($file) && ($file->filesize > 0)) {
-
-    $_FILES['files']['name']['privatemsg_message_upload'] = $file->filename;
-    $_FILES['files']['type']['privatemsg_message_upload'] = $file->filemime;
-    $_FILES['files']['tmp_name']['privatemsg_message_upload'] = $file->filepath;
-    $_FILES['files']['error']['privatemsg_message_upload'] = 0;
-    $_FILES['files']['size']['privatemsg_message_upload'] = $file->filesize;
-
-    if (user_access('upload private message attachments') && ($file = tvchat_file_save_upload('privatemsg_message_upload', $validators, file_directory_path() . $dir))) {
-        $file->list = variable_get('upload_list_default', 1);
-        $file->description = $file->filename;
-        $file->weight = 0;
-        $file->new = TRUE;
-    }
-    return $file;
-
-  } else {
-
-    return  NULL;
-  }
-}

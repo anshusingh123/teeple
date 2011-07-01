@@ -5,7 +5,7 @@
  * @author Written by scottgifford http://drupal.org/user/245699
  * @file Link general user relationship functionalities to services module.
  */
-function user_relationship_tvchat_service_mine_with_type($version, $type_name) {
+function user_relationship_tvchat_service_mine_with_type($version, $type_name){
   try {
     global $user;
 

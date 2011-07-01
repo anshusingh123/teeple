@@ -211,5 +211,28 @@ function privatemsg_tvchat_service_service() {
       '#return'           => 'struct',
       '#help'             => t('Get message list who communicate with private messages with thread id.')
     ),
+
+    array(
+      '#method'           => 'privatemsg.getThreadIdForFriend',
+      '#callback'         => 'privatemsg_tvchat_service_get_thread_id_for_friend',
+      '#access arguments' => array('get private messages from remote'),
+      '#file'             => array('file' => 'inc', 'module' => 'privatemsg_tvchat_service'),
+      '#args'             => array(
+        array(
+          '#name'         => 'friend_uid',
+          '#type'         => 'int',
+          '#optional'     => FALSE,
+          '#description'  => t('Friends\' user id')
+        ), 
+        array(
+          '#name'         => 'author_id',
+          '#type'         => 'int',
+          '#optional'     => TRUE,
+          '#description'  => t('author id')
+        ), 
+      ),
+      '#return'           => 'int',
+      '#help'             => t('Get thread id for friend.')
+    ),
   );
 }
