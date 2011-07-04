@@ -18,9 +18,12 @@
  * @author (C) 2010 Aldo Armiento (aldo.armiento@gmail.com)
  * @version $Id: sample_server.php 55 2010-08-27 19:07:38Z aldo.armiento $
  */
+include_once './includes/bootstrap.inc';
+drupal_bootstrap(DRUPAL_BOOTSTRAP_FULL);
+setlocale(LC_ALL, 'ko_KR.UTF-8');
 
 // Adjust to your timezone
-date_default_timezone_set('Europe/Rome');
+date_default_timezone_set('Asia/Seoul');
 
 // Report all PHP errors
 error_reporting(-1);

@@ -31,11 +31,13 @@ require_once 'ApnsPHP/Autoload.php';
 // Instanciate a new ApnsPHP_Push object
 $push = new ApnsPHP_Push(
 	ApnsPHP_Abstract::ENVIRONMENT_SANDBOX,
-	'server_cerificates_bundle_sandbox.pem'
+	// 'server_certificates_bundle_sandbox.pem'
+	'apns-dev.pem'
 );
 
 // Set the Root Certificate Autority to verify the Apple remote peer
   $push->setRootCertificationAuthority('entrust_root_certification_authority.pem');
+  // $push->setRootCertificationAuthority('Entrust.net_Premium_2048_Secure_Server_CA.pem');
   // $push->setRootCertificationAuthority('server.pem');
   // $push->setRootCertificationAuthority('entrust_ssl_ca.pem');
 
@@ -43,22 +45,22 @@ $push = new ApnsPHP_Push(
 $push->connect();
 
 // Instantiate a new Message with a single recipient
-//$message = new ApnsPHP_Message('1e82db91c7ceddd72bf33d74ae052ac9c84a065b35148ac401388843106a7485');
+// $message = new ApnsPHP_Message('1e82db91c7ceddd72bf33d74ae052ac9c84a065b35148ac401388843106a7485');
 // $message = new ApnsPHP_Message('1437f418c473f31044ffd78f5a781fb6f73e3ef6ed5045673c24e4dc3b6a3a7a');
-// $message = new ApnsPHP_Message('80864857c184e960e58ec5415b79fe7deba0c9577c2365f9b90318ea24432cf0');
-  $message = new ApnsPHP_Message($_POST['deviceToken']);
+  $message = new ApnsPHP_Message('80864857c184e960e58ec5415b79fe7deba0c9577c2365f9b90318ea24432cf0');
+ // $message = new ApnsPHP_Message($_POST['deviceToken']);
 
 // Set a custom identifier. To get back this identifier use the getCustomIdentifier() method
 // over a ApnsPHP_Message object retrieved with the getErrors() message.
 $message->setCustomIdentifier("Message-Badge-3");
 
 // Set badge icon to "3"
-// $message->setBadge(3);
-$message->setBadge((int)$_POST['badge']);
+$message->setBadge(3);
+// $message->setBadge((int)$_POST['badge']);
 
 // Set a simple welcome text
-// $message->setText('Hello APNs-enabled device!');
-$message->setText($_POST['subject']);
+$message->setText('Hello APNs-enabled device!');
+// $message->setText($_POST['subject']);
 
 // Play the default sound
 $message->setSound();

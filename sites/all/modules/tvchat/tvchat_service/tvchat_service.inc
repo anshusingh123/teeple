@@ -246,6 +246,9 @@ function tvchat_service_audience_list($showId,$friend_flag=0,$offset=0,$limit=20
 
     if($friend_flag > 0) {
        $where_friends = empty($friends_uid_list) ? "" : sprintf(" AND (comments.uid IN (%s) )", join(',', $friends_uid_list));
+       if(empty($friends_uid_list)){
+        return services_error(t('No Data Found'), 511);
+       }
 
     } else {
        $friends_uid_list[] = $user->uid;
@@ -340,6 +343,10 @@ function tvchat_service_audience_list($showId,$friend_flag=0,$offset=0,$limit=20
       }
 
       if($found == $limit) { break; }
+  }
+
+  if(empty($ret_array)) {
+    return services_error(t('No Data Found'), 511);
   }
 
   return $ret_array;
