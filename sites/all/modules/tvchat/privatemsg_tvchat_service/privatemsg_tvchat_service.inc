@@ -7,6 +7,8 @@
  *  Link general private message module functionalities to services module.
  */
 
+// not used
+// 
 function _send_to_APNS($deviceToken, $subject, $badge) {
   $query_string = sprintf("deviceToken=%s&subject=%s&badge=%d", $deviceToken, $subject, $badge);
 
@@ -141,6 +143,19 @@ function privatemsg_tvchat_service_get_thread_id_for_friend($friend_uid, $author
    return $ret;
 }
 
+// default privatemsg_unread_count based on thread_id not mid 
+// changed privatemsg_unread_count -> privatemsg_tvchat_service_unread_count 
+// 
+function privatemsg_tvchat_service_unread_count($uid = 0) {
+    global $user;
+
+    $recipientUid = empty($uid) ? $user->uid : $uid;
+
+    $_query = sprintf("SELECT COUNT(DISTINCT mid) as unread_count FROM {pm_index} pmi WHERE pmi.deleted = 0 AND pmi.is_new = 1 AND pmi.recipient = %d", $recipientUid);
+    $unread_count = db_result(db_query($_query));
+    return $unread_count;
+}
+
 /**
  * get list of friend's uid who communicated by order by recently
  *
@@ -180,14 +195,15 @@ function privatemsg_tvchat_service_get_uids($uid=0) {
     $message = db_fetch_object(db_query($_query));
 
     // unread_count
+    // 각 thread에서의 unread count를 계산 
     //
-    $_query = sprintf("SELECT COUNT(DISTINCT thread_id) as unread_count FROM {pm_index} pmi WHERE pmi.thread_id = %d AND pmi.deleted = 0 AND pmi.is_new = 1 AND pmi.recipient = %d", $element->thread_id, $account->uid);
+    $_query = sprintf("SELECT COUNT(DISTINCT mid) as unread_count FROM {pm_index} pmi WHERE pmi.thread_id = %d AND pmi.deleted = 0 AND pmi.is_new = 1 AND pmi.recipient = %d", $element->thread_id, $account->uid);
     $unread_count = db_result(db_query($_query));
 
     // get participants
     // 
     $participants = _get_participent_uids_by_thread_id($element->thread_id);
-    $participants = array_diff($participants, array($message->author));
+    // $participants = array_diff($participants, array($message->author));
 
     $list_participants = array();
 
@@ -195,7 +211,8 @@ function privatemsg_tvchat_service_get_uids($uid=0) {
 
       foreach ($participants as $participant) {
         $temp_user = user_load($participant);
-        $list_participants[] = array('uid' => $participant, 'nickName'=> $temp_user->profile_nickname);
+        $temp_picture = empty($temp_user->picture) ? null: $base_url.'/'.$temp_user->picture;
+        $list_participants[] = array('uid' => $participant, 'nickName'=> $temp_user->profile_nickname, 'picture' => $temp_picture, 'userName' => $element->name);
       }
 
       $picture = empty($message->picture) ? null: $base_url.'/'.$message->picture;

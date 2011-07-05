@@ -510,6 +510,36 @@ function tvchat_send_xmpp_message($authorId, $recipientUids, $body){
     return true;
 }
 
+function tvchat_send_apns_message($authorId=0, $recipientUids, $message, $badge=0) {
+
+    $senderId = $authorId == 0 ? 1 : $authorId;
+    $timestamp = time();
+
+    foreach($recipientUids as $uid) {
+        $account = user_load($uid);
+
+        if(!empty($account)) {
+
+            $device_token = empty($account->profile_APNS_token) ? '': $account->profile_APNS_token;
+            if(empty($device_token)) return false;
+
+            $element = array(
+                'sender' => $senderId,
+                'receiver' => $uid,
+                'device_token' => $device_token,
+                'message' => $message,
+                'badge' => $badge,
+                'delivery' => $timestamp,
+                'created' => $timestamp,
+                'modified' => $timestamp
+            );
+
+            drupal_write_record('apns_messages', $element);
+        }
+    }
+    return true;
+}
+
 //
 //   refer to file_save_upload(in includes/file.inc )
 //   tvchat_file_save_upload instead of file_save_upload (default) for base64 encoded file saving
