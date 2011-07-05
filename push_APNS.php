@@ -5,7 +5,6 @@
  * @file
  * Handles incoming requests to fire off regularly-scheduled tasks (cron jobs).
  */
-
 include_once './includes/bootstrap.inc';
 drupal_bootstrap(DRUPAL_BOOTSTRAP_FULL);
 
@@ -25,26 +24,24 @@ $_query = sprintf("SELECT DISTINCT(node.nid) AS nid, node.title AS node_title, n
 $result = db_query($_query);
 
 // flag follow, fid(2) 
+//
 while ($row = db_fetch_object($result)) {
   $message = $row->node_title." (가)이 곧 시작합니다. -teeple";
   $_query = sprintf("SELECT uid FROM flag_content WHERE fid = 2 AND content_id = %d", $row->nid);
 
-  echo "message: ".$message;
-  echo "<br>";
+  $recipientUids = array();
 
   $result_follow = db_query($_query);
   while ($element = db_fetch_object($result_follow)) {
     $user = user_load($element->uid);
 
-    echo "uid: ".$user->uid." name: ".$user->name;
-
-    if (isset($user)) {
-      if (!is_null($user->profile_tvshow_alarm) AND ($user->profile_tvshow_alarm == 1)) {
-        if (!is_null($user->profile_APNS_token) && (strlen($user->profile_APNS_token)>0)) {
-          _send_to_APNS($user->profile_APNS_token, $message, 0);
-        }
-      }
+    if (isset($user) && !empty($user->profile_APNS_token) ) {
+        $recipientUids[] = $user->uid;
     }
+  }
+
+  if(!empty($recipientUids)) {
+    tvchat_send_apns_message(1, $recipientUids, $message, 0);
   }
 }
 
