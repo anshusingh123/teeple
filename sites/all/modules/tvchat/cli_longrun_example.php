@@ -7,13 +7,18 @@ include 'XMPPHP/XMPP.php';
 
 #Use XMPPHP_Log::LEVEL_VERBOSE to get more logging for error reports
 #If this doesn't work, are you running 64-bit PHP with < 5.2.6?
-$conn = new XMPPHP_XMPP('teeple.co.kr', 5222, '1', 'tvchat.123', 'xmpphp', 'teeple.co.kr', $printlog=false, $loglevel=XMPPHP_Log::LEVEL_INFO);
+/*
+$conn = new XMPPHP_XMPP('newbiz.uangel.com', 5222, '1', 'tvchat.123', 'teeple', 'newbiz.uangel.com', $printlog=false, $loglevel=XMPPHP_Log::LEVEL_INFO);
 $conn->autoSubscribe();
+*/
+
+$conn = XMPPHP_XMPP::getInstance('newbiz.uangel.com', 5222, '1', 'tvchat.123', 'teeple', 'newbiz.uangel.com', $printlog=false, $loglevel=XMPPHP_Log::LEVEL_INFO);
 
 $vcard_request = array();
-
 try {
+    /*
     $conn->connect();
+    */
     while(!$conn->isDisconnected()) {
     	$payloads = $conn->processUntil(array('message', 'presence', 'end_stream', 'session_start', 'vcard'));
     	foreach($payloads as $event) {

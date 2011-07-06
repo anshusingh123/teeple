@@ -42,6 +42,12 @@ require_once dirname(__FILE__) . "/Roster.php";
  * @version	$Id$
  */
 class XMPPHP_XMPP extends XMPPHP_XMLStream {
+
+    // make it as singletone 
+    // youngmin, 2011.7.8
+    // 
+    private static $m_pInstance;
+
 	/**
 	 * @var string
 	 */
@@ -134,6 +140,25 @@ class XMPPHP_XMPP extends XMPPHP_XMLStream {
 		$this->addXPathHandler('{jabber:client}presence', 'presence_handler');
 		$this->addXPathHandler('iq/{jabber:iq:roster}query', 'roster_iq_handler');
 	}
+
+    // get instance 
+    // make instance if not exist 
+    // 
+    public static function getInstance($host, $port, $user, $password, $resource, $server = null, $printlog = false, $loglevel = null) { 
+        if (!self::$m_pInstance) { 
+            self::$m_pInstance = new XMPPHP_XMPP($host, $port, $user, $password, $resource, $server, $printlog, $loglevel);
+            try {
+                self::$m_pInstance->connect();
+                self::$m_pInstance->processUntil('session_start');
+                self::$m_pInstance->presence();
+            } catch (XMPPHP_Exception $e) {
+                error_log('xmpp', $e->getMessage());
+            }
+            error_log('xmpp connected');
+        } 
+        error_log('xmpp instance returned');
+        return self::$m_pInstance; 
+    }
 
 	/**
 	 * Turn encryption on/ff

@@ -1,5 +1,4 @@
 <?php
-
 include 'XMPPHP/XMPP.php';
 
 /**
@@ -483,22 +482,12 @@ function tvchat_friends_uid_list(){
 function tvchat_send_xmpp_message($authorId,$recipientUids,$body,$thread_id=0,$mid=0, $action) {
     global $user;
     global $base_root;
+    global $base_url;
 
-    static $xmpp = NULL;
+    $xmpp = XMPPHP_XMPP::getInstance('newbiz.uangel.com', 5222, '1', 'tvchat.123', 'teeple', 'newbiz.uangel.com', false, XMPPHP_Log::LEVEL_INFO);
 
     if (!isset($xmpp)) {
         watchdog('xmpp', 'xmpp undefined');
-
-        $xmpp = new XMPPHP_XMPP('newbiz.uangel.com', 5222, '1', 'tvchat.123', 'xmpphp', 'newbiz.uangel.com', $printlog=false, $loglevel=XMPPHP_Log::LEVEL_INFO);
-        try {
-            $xmpp->connect();
-            $xmpp->processUntil('session_start');
-            $xmpp->presence();
-            watchdog( 'xmpp', 'xmpp connected');
-
-        } catch(XMPPHP_Exception $e) {
-            watchdog( 'xmpp', $e->getMessage());
-        }
     }
 
     $account = user_load($authorId);
@@ -506,8 +495,6 @@ function tvchat_send_xmpp_message($authorId,$recipientUids,$body,$thread_id=0,$m
 
     $ret_message = array();
     $ret_message['#error'] = 'false';
-
-    // dsm($recipientUids);
 
     foreach ($recipientUids as $uid) {
         $result = db_result(db_query("SELECT count(sid) FROM sessions WHERE uid = %d", $uid));
@@ -518,10 +505,12 @@ function tvchat_send_xmpp_message($authorId,$recipientUids,$body,$thread_id=0,$m
 
             $data = array();
             $account_receiver = user_load($uid);
-            $receiver_jid = $account_receiver->uid.'@'.$_SERVER['HTTP_HOST'];
+            $receiver_jid = $account_receiver->uid.'@'.$_SERVER['HTTP_HOST'].'/teeple';
 
             $data['action'] = $action;
             $data['uid'] = $authorId;
+            $data['nickName'] = empty($account->profile_nickname) ? null: $accont->profile_nickname;
+            $data['userPicture'] = empty($account->picture) ? null: $base_url.'/'.$account->picture;
             $data['mid'] = $mid ? $mid : null;
             $data['thread_id'] = $thread_id ? $thread_id: null;
             $data['message'] = $body;
@@ -529,6 +518,7 @@ function tvchat_send_xmpp_message($authorId,$recipientUids,$body,$thread_id=0,$m
             $ret_message['#data'] = $data;
 
             try{
+                dsm($receiver_jid);
                 $xmpp->message($receiver_jid, drupal_to_js($ret_message));
                 watchdog( 'xmpp', 'send message to '.$receiver_jid);
 
