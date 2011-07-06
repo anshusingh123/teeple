@@ -57,6 +57,12 @@ while ($server->run()) {
 		var_dump($aErrorQueue);
 	}
 
+    if(!$con) {
+        $con = mysql_connect('localhost', 'drupal6', 'drupal6.123');
+        if (!$con) { die('Could not connect: '. mysql_error()); }
+        mysql_select_db('drupal6', $con);
+    }
+
     $timestamp = time();
     // $result = mysql_query("SELECT * FROM apns_messages WHERE status = 'queued' ORDER BY created ASC");
     $result = mysql_query("SELECT * FROM apns_messages ");

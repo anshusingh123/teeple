@@ -1,4 +1,7 @@
 <?php
+
+include 'XMPPHP/XMPP.php';
+
 /**
   print check status
 */
@@ -461,6 +464,7 @@ function tvchat_friends_uid_list(){
     $friends_list = user_relationship_tvchat_service_mine_with_type('1', 'Friend');
 
     $friends_uid_list = array();
+
     if (isset($friends_list) && count($friends_list) > 0 ) {
       foreach($friends_list as $friend) {
         $friends_uid_list[] = $friend->requester_id;
@@ -476,8 +480,26 @@ function tvchat_friends_uid_list(){
   }
 }
 
-function tvchat_send_xmpp_message($authorId, $recipientUids, $body){
+function tvchat_send_xmpp_message($authorId,$recipientUids,$body,$thread_id=0,$mid=0, $action) {
     global $user;
+    global $base_root;
+
+    static $xmpp = NULL;
+
+    if (!isset($xmpp)) {
+        watchdog('xmpp', 'xmpp undefined');
+
+        $xmpp = new XMPPHP_XMPP('newbiz.uangel.com', 5222, '1', 'tvchat.123', 'xmpphp', 'newbiz.uangel.com', $printlog=false, $loglevel=XMPPHP_Log::LEVEL_INFO);
+        try {
+            $xmpp->connect();
+            $xmpp->processUntil('session_start');
+            $xmpp->presence();
+            watchdog( 'xmpp', 'xmpp connected');
+
+        } catch(XMPPHP_Exception $e) {
+            watchdog( 'xmpp', $e->getMessage());
+        }
+    }
 
     $account = user_load($authorId);
     $sender_jid = $account->uid.'@'.$_SERVER['HTTP_HOST'];
@@ -485,27 +507,35 @@ function tvchat_send_xmpp_message($authorId, $recipientUids, $body){
     $ret_message = array();
     $ret_message['#error'] = 'false';
 
+    // dsm($recipientUids);
+
     foreach ($recipientUids as $uid) {
-        $_query = sprintf("SELECT count(sid) FROM sessions WHERE uid = %d", $uid);
-        $result = db_result(db_query($_query));
+        $result = db_result(db_query("SELECT count(sid) FROM sessions WHERE uid = %d", $uid));
 
         // online user 
         //
         if ($result > 0) {
+
             $data = array();
             $account_receiver = user_load($uid);
             $receiver_jid = $account_receiver->uid.'@'.$_SERVER['HTTP_HOST'];
 
-            $data['uid'] = $account_receiver->uid;
+            $data['action'] = $action;
+            $data['uid'] = $authorId;
+            $data['mid'] = $mid ? $mid : null;
+            $data['thread_id'] = $thread_id ? $thread_id: null;
             $data['message'] = $body;
+
             $ret_message['#data'] = $data;
 
-            $xmpp_cmd = variable_get('xmpp_send_cmd', 'echo newbiz.123 | sudo -S /usr/sbin/ejabberdctl send_message_chat %s %s \'%s\'');
+            try{
+                $xmpp->message($receiver_jid, drupal_to_js($ret_message));
+                watchdog( 'xmpp', 'send message to '.$receiver_jid);
 
-            $command = sprintf($xmpp_cmd, $sender_jid, $receiver_jid, drupal_to_js($ret_message));
-
-            $outPut = shell_exec($command);
-        } 
+            } catch(XMPPHP_Exception $e) {
+                watchdog( 'xmpp', 'fail to send message. E:'.$e->getMessage());
+            }
+        }
     }
     return true;
 }

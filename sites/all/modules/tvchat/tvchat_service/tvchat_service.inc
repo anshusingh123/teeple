@@ -280,8 +280,7 @@ function tvchat_service_audience_list($showId,$friend_flag=0,$offset=0,$limit=20
         // 
         if(!array_key_exists($element['uid'], $list_keys)) {
 
-
-          if ($index <= $offset) { $index++; continue; }
+          if ($index < $offset) { $index++; continue; }
 
           $login_flag = db_result(db_query("SELECT count(sid) FROM {sessions} WHERE uid = %d", $element['uid']));
 
@@ -305,7 +304,6 @@ function tvchat_service_audience_list($showId,$friend_flag=0,$offset=0,$limit=20
       $add_uid_list = $friends_uid_list;
 
   } else {
-
       $_query = "SELECT users.uid AS uid FROM users users ORDER BY access DESC";
       $result = db_query_range($_query, 0, 50);
 
@@ -318,9 +316,10 @@ function tvchat_service_audience_list($showId,$friend_flag=0,$offset=0,$limit=20
   foreach($add_uid_list as $element_uid) {
 
       if($element_uid == 0) continue;
-      if(!array_key_exists($element_uid->uid, $list_keys)) {
 
-        if ($index <= $offset) { $index++; continue; }
+      if(!array_key_exists($element_uid, $list_keys)) {
+
+        if ($index < $offset) { $index++; continue;}
         $account_tmp = user_load($element_uid);
 
         $login_flag = db_result(db_query("SELECT count(sid) FROM {sessions} WHERE uid = %d", $element_uid));
@@ -339,10 +338,9 @@ function tvchat_service_audience_list($showId,$friend_flag=0,$offset=0,$limit=20
 
         $ret_array[] = (object)$element;
         $found++;
-
       }
 
-      if($found == $limit) { break; }
+      if($limit > 0 && $found == $limit) { break; }
   }
 
   if(empty($ret_array)) {

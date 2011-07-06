@@ -370,6 +370,8 @@ function user_relationships_load($param = array(), $options = array(), $reset = 
   }
   $query = _user_relationships_generate_query($param, $options);
 
+  $temp_query = $query[(isset($count) && $count ? 'count' : 'query')];
+
   $results = db_query($query[(isset($count) && $count ? 'count' : 'query')], $query['arguments']);
 
   if (isset($count) && $count) {
@@ -378,6 +380,7 @@ function user_relationships_load($param = array(), $options = array(), $reset = 
 
   $relationships = array();
   while ($relationship = db_fetch_object($results)) {
+
     if (isset($include_user_info)) {
       user_relationships_api_translate_user_info($relationship);
     }

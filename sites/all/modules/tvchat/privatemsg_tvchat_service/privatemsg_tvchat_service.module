@@ -234,5 +234,28 @@ function privatemsg_tvchat_service_service() {
       '#return'           => 'int',
       '#help'             => t('Get thread id for friend.')
     ),
+
+    array(
+      '#method'           => 'privatemsg.getMessages',
+      '#callback'         => 'privatemsg_tvchat_service_get_messages',
+      '#access arguments' => array('get private messages from remote'),
+      '#file'             => array('file' => 'inc', 'module' => 'privatemsg_tvchat_service'),
+      '#args'             => array(
+        array(
+          '#name'         => 'mids',
+          '#type'         => 'array',
+          '#optional'     => FALSE,
+          '#description'  => t('message ids')
+        ), 
+        array(
+          '#name'         => 'uid',
+          '#type'         => 'int',
+          '#optional'     => TRUE,
+          '#description'  => t('author id, default: logged user')
+        ), 
+      ),
+      '#return'           => 'struct',
+      '#help'             => t('Get message array for each mid.')
+    ),
   );
 }

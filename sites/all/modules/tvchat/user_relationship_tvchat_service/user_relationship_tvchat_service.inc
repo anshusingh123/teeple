@@ -11,8 +11,9 @@ function user_relationship_tvchat_service_mine_with_type($version, $type_name){
 
     $type = user_relationships_type_load(array('name' => $type_name));
     $param = array('user' => $user->uid, 'rtid' => $type->rtid, 'approved' => '1');
+    $options = array();
+    $rels = user_relationships_load($param, $options, true);
 
-    $rels = user_relationships_load($param);
     /*
     if (!$rels || !is_array($rels)) {
       throw new Exception("User relationship load failed");

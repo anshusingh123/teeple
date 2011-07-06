@@ -6,29 +6,6 @@
  * @file
  *  Link general private message module functionalities to services module.
  */
-
-// not used
-// 
-function _send_to_APNS($deviceToken, $subject, $badge) {
-  $query_string = sprintf("deviceToken=%s&subject=%s&badge=%d", $deviceToken, $subject, $badge);
-
-  $request_uri = variable_get('apns_request_url', 'http://newbiz.uangel.com/tvchat/ApnsPHP/sample_push.php');
-
-  $result = drupal_http_request(
-      url($request_uri, array(absolute => TRUE)),
-      array('Content-Type' => 'application/x-www-form-urlencoded'),
-          'POST',
-          $query_string);
-
-  if ($result->code== '200') {
-        watchdog('privatemsg_service_send', 'APNS: Message Delivery Success');
-
-  } else {
-        watchdog('privatemsg_service_send', 'APNS: Message Delivery Error');
-
-  }
-}
-
 function _message_insert($file, $mid) {
   if ($file->new) {
     db_query("INSERT INTO {pm_attachments} (fid, mid, list, description, weight) VALUES (%d, %d, %d, '%s', %d)", $file->fid, $mid, $file->list, $file->description, $file->weight);
@@ -478,3 +455,29 @@ function privatemsg_tvchat_service_get_thread($thread_id, $offset =0){
 
     return $ret_array;
 }
+
+function privatemsg_tvchat_service_get_messages($pmids, $uid=NULL) {
+  global $user;
+
+  $account = empty($uid) ? user_load($uid): user_load($user->uid);
+  $messages = privatemsg_message_load_multiple($pmids, $account );
+
+  if(empty($messages)) {
+      services_error(t("No Data Found"), 500);
+  }
+
+  foreach($messages AS $message) {
+    $ret_array[] = array(
+        'thread_id' => $message['thread_id'],
+        'mid' => $message['mid'],
+        'authorId' => $message['author']->uid,
+        'body' => $message['body'],
+        'files' => $message['files'],
+        'postDate' => date('Y-m-d H:i', $message['timestamp'])
+    );
+  }
+
+  return $ret_array;
+}
+
+
