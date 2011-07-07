@@ -309,6 +309,8 @@ function _account_reset($uid_by_email, $email) {
  */
 function user_tvchat_service_signup($nick, $email, $phone_number, $fname=null, $picture=null, $token_APNS=null, $status=1) {
 
+   watchdog('params', 'Nick: '.$nick.' email: '.$email.' phone: '.$phone_number.' token_APNS: '.$token_APNS);
+
   if((!isset($picture)) && isset($_POST['picture']) && strlen($_POST['picture'])) {
       $picture = str_replace('"', '', $_POST['picture']);
   }
@@ -327,6 +329,7 @@ function user_tvchat_service_signup($nick, $email, $phone_number, $fname=null, $
   $flag_account_reset = false;
 
   // email already exist
+  // (이메일이 기존에 있을 경우)
   // 
   if (isset($uid_by_email) && ($uid_by_email > 0)) {
 
@@ -336,11 +339,14 @@ function user_tvchat_service_signup($nick, $email, $phone_number, $fname=null, $
     $flag_account_reset = true;
 
   // email = different, phone_no = same
+  // (이메일은 다르고, 폰 번호를 같을 경우)
   // 
   } elseif (isset($uid_by_phone) && $uid_by_phone > 0) {
 
     $user = user_load($uid_by_phone);
 
+    // 다른 사람의 주소록 업로드로 인해 미리 등록된 사용자일 때,
+    // 
     if ($user->status == '0') {
 
         // change the user name by email address
@@ -357,8 +363,8 @@ function user_tvchat_service_signup($nick, $email, $phone_number, $fname=null, $
         $ret_array['pass'] = $user->pass;
         $ret_array['jid'] = $user->uid;
 
-    // new account creation 
     // 
+    // 새로 생성해야 할 경우,
     } else {
 
       // make a new user account
@@ -383,7 +389,7 @@ function user_tvchat_service_signup($nick, $email, $phone_number, $fname=null, $
        $ret_array['jid'] = $user->uid;
     }
 
-  // new account creation 
+  // 새로운 사용자 생성 
   //
   } else {
 
@@ -420,7 +426,6 @@ function user_tvchat_service_signup($nick, $email, $phone_number, $fname=null, $
     if ($user->profile_message_alarm) { $edit['profile_message_alarm'] = $user->profile_message_alarm; }
     if ($user->profile_tvshow_alarm) { $edit['profile_tvshow_alarm'] = $user->profile_tvshow_alarm; }
   }
-
   profile_save_profile($edit, $user, 'Personal information');
 
   return $ret_array;
@@ -455,19 +460,18 @@ function user_tvchat_service_update($nick=null, $todayMessage=null, $fname=null,
   //
   $edit = array();
 
-  if (isset($nick)) { $edit['profile_nickname'] = $nick; }
-  if (isset($todayMessage)) { $edit['profile_todayMessage'] = $todayMessage; }
-  if (isset($token_APNS)) { $edit['profile_APNS_token'] = $token_APNS;}
-  if (isset($phone_number)) { $edit['profile_phone_no'] = $phone_number; }
-  if (isset($message_alarm)) { $edit['profile_message_alarm'] = $message_alarm;}
-  if (isset($tvshow_alarm)) { $edit['profile_tvshow_alarm'] = $tvshow_alarm;}
+  $edit['profile_nickname'] = empty($nick) ? $account->profile_nickname: $nick;
+  $edit['profile_todayMessage'] = empty($todayMessage) ? $account->profile_todayMessage: $todayMessage;
+  $edit['profile_APNS_token'] = empty($token_APNS) ? $account->profile_APNS_token: $token_APNS;
+  $edit['profile_phone_no'] = empty($phone_number) ? $account->profile_phone_no: $phone_number;
+  $edit['profile_message_alarm'] = empty($message_alarm) ? $account->profile_message_alarm : $message_alarm;
+  $edit['profile_tvshow_alarm'] = empty($tvshow_alarm) ? $account->profile_tvshow_alarm : $tvshow_alarm;
 
   profile_save_profile($edit, $account, 'Personal information');
 
   $account = user_load($user->uid);
-  $account->picture = $base_url.'/'.$account->picture;
+  $account->picture = empty($account->picture) ? null: $base_url.'/'.$account->picture;
 
   return $account;
-
 }
 

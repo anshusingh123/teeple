@@ -88,10 +88,11 @@ function user_service_get_access($uid) {
 function user_service_login($username, $password, $phone_number) {
   global $user;
 
+  /*
   if ($user->uid) {
-    // user is already logged in
     return services_error(t('Already logged in as !user.', array('!user' => $user->name)), 406);
   }
+  */
 
   $params = array();
   $params['name'] = $username;
@@ -103,7 +104,6 @@ function user_service_login($username, $password, $phone_number) {
 
     // one session id for one user
     // youngmin, modified 
-    // 
     sess_destroy_uid($user->uid);
 
     // Regenerate the session ID to prevent against session fixation attacks.

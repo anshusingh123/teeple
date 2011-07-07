@@ -12,7 +12,7 @@ function user_authentication_service_send_invite_sms($phone_numbers) {
   $MSG_GB = 'A';
   $SND_DTTM = date('YmdHis', $curTime);
   $SND_PHN_ID = variable_get('snd_phn_id', '0317106200');
-  $CALLBACK = variable_get('callback', '0317106200');
+  $CALLBACK = $user->profile_phone_no;
   $url_shorten = variable_get('url_intro_shorten', 'http://tiny.cc/6g0cw');
   $EXPIRE_VAL = 0;
   $SMS_ST = '0';

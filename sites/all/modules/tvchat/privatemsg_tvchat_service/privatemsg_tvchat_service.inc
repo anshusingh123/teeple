@@ -340,17 +340,6 @@ function privatemsg_tvchat_service_send_with_uids($recipientUids, $body = NULL, 
 
   }
 
-  /*
-  if ($ret['success']) {
-    // $ret_array['success'][$uid] = array('uid' => $uid, 'success' => true);
-    $ret_array['success'][$uid] = $uid;
-
-  } else {
-    // $ret_array['fail'][$uid] = array('uid' => $uid, 'success' => false);
-    $ret_array['fail'][$uid] = $uid;
-  }
-  */
-
   if ($ret['success']) {
     _message_insert($file, $ret['message']['mid']);
 

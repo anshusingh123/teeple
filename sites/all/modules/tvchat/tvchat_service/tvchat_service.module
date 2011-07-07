@@ -131,7 +131,7 @@ function tvchat_service_service() {
         '#args'             => array(
             array(
                 '#name'           => 'contacts_json',
-                '#type'           => 'string',
+                '#type'           => 'array',
                 '#optional'       => false,
                 '#description'    => t('user contact list.'),
             ),
