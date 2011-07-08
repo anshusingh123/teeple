@@ -26,6 +26,8 @@
  */
 function views_service_get($view_name, $display_id = 'default', $args = array(), $offset = 0, $limit = 0, $format_output = FALSE) {
 
+  dsm($args);
+
   $result = array();
   $view = views_get_view($view_name);
 

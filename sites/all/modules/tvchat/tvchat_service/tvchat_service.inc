@@ -239,7 +239,14 @@ function tvchat_service_upload_contacts($contacts_json) {
     // 이미 존재하는 사용자를 제외하고, 주소록에 있는 사용자에 대해서 임의로 계정을 생성한다.
     // 
     $friends_phone_new_list = array();
-    $friends_phone_new_list = array_diff($phone_list, $existing_phone_list);
+
+    if(!empty($existing_phone_list)) {
+        $friends_phone_new_list = array_diff($phone_list, $existing_phone_list);
+
+    } else {
+        $friends_phone_new_list = $phone_list;
+
+    }
 
     if(!empty($friends_phone_new_list)) {
         $dummy_list = make_dummy_users($friends_phone_new_list);
@@ -274,6 +281,7 @@ function tvchat_service_upload_contacts($contacts_json) {
 }
 
 function _get_query_for_audience_list($issue_id_list, $friend_flag, $friends_uid_list) {
+    global $user;
 
     $one_day = 60*60*24;
     $one_week = $one_day * 7;
@@ -281,21 +289,47 @@ function _get_query_for_audience_list($issue_id_list, $friend_flag, $friends_uid
     $before_date = $one_month * 3;
     $timestamp = time() - $before_date;
 
-    $_query_tmp = "SELECT comments.comment AS comment, node_comments.type AS type, comments.timestamp AS timestamp, users_comments.picture AS userPicture, users_comments.uid AS uid, users_comments.name AS userName, users_comments_profile_values_profile_nickname.value as userNickName, users_comments.access AS access FROM comments comments LEFT JOIN node node_comments ON comments.nid = node_comments.nid LEFT JOIN content_field_tvshow node_comments_node_data_field_tvshow ON node_comments.vid = node_comments_node_data_field_tvshow.vid LEFT JOIN node node_node_data_field_tvshow ON node_comments_node_data_field_tvshow.field_tvshow_nid = node_node_data_field_tvshow.nid LEFT JOIN profile_values users_comments_profile_values_profile_nickname ON comments.uid = users_comments_profile_values_profile_nickname.uid AND users_comments_profile_values_profile_nickname.fid = '5' LEFT JOIN users users_comments ON comments.uid = users_comments.uid WHERE (node_comments.type in ('forum', 'issue_poll', 'tvshow')) ";
+    // 
+    $_query_tmp = "SELECT comments.nid AS nid, comments.comment AS comment, node_comments.type AS type, comments.timestamp AS timestamp, users_comments.picture AS userPicture, users_comments.uid AS uid, users_comments.name AS userName, users_comments_profile_values_profile_nickname.value as userNickName, users_comments.access AS access FROM comments comments LEFT JOIN node node_comments ON comments.nid = node_comments.nid LEFT JOIN content_field_tvshow node_comments_node_data_field_tvshow ON node_comments.vid = node_comments_node_data_field_tvshow.vid LEFT JOIN node node_node_data_field_tvshow ON node_comments_node_data_field_tvshow.field_tvshow_nid = node_node_data_field_tvshow.nid LEFT JOIN profile_values users_comments_profile_values_profile_nickname ON comments.uid = users_comments_profile_values_profile_nickname.uid AND users_comments_profile_values_profile_nickname.fid = '5' LEFT JOIN users users_comments ON comments.uid = users_comments.uid WHERE (node_comments.type in ('forum', 'issue_poll', 'tvshow')) ";
 
     if($friend_flag > 0) {
-       $where_friends = empty($friends_uid_list) ? "" : sprintf(" AND (comments.uid IN (%s) )", join(',', $friends_uid_list));
+       $where_friends = empty($friends_uid_list) ? "" : sprintf(" AND (users_comments.uid IN (%s) )", join(',', $friends_uid_list));
        if(empty($friends_uid_list)){ return null; } 
 
     } else {
        $friends_uid_list[] = $user->uid;
-       $where_friends = empty($friends_uid_list) ? "" : sprintf(" AND (comments.uid NOT IN (%s) )", join(',', $friends_uid_list));
+       $where_friends = empty($friends_uid_list) ? "" : sprintf(" AND (users_comments.uid NOT IN (%s) )", join(',', $friends_uid_list));
     }
     $where_issue = empty($issue_id_list) ?  "" : sprintf(" AND (node_comments.nid IN (%s) )", join(',', $issue_id_list));
     $where_timestamp = sprintf(" AND comments.timestamp > %d ORDER BY timestamp DESC", $timestamp);
     $_query = $_query_tmp.$where_friends.$where_issue.$where_timestamp;
 
     return $_query;
+}
+
+
+function _get_element($uid, $comment, $type, $timestamp){
+
+    global $base_url;
+
+    $account = user_load($uid);
+
+    $element = array("comment" => $comment,
+        "type" => $type,
+        "timestamp"=> $timestamp,
+        "uid" => $uid, 
+        "userId" => $uid, 
+        "userName" => $account->name, 
+        "userNickName" => $account->profile_nickname, 
+        "access" => $account->access
+    );
+
+    $login_flag = db_result(db_query("SELECT count(sid) FROM {sessions} WHERE uid = %d", $element_uid));
+
+    $element['loginStatus'] = empty($login_flag) ? FALSE: TRUE;
+    $element['userPicture'] = empty($account->picture) ? null : $base_url.'/'.$account->picture;
+
+    return $element;
 }
 
 function get_audience_list($query, $offset, $limit){
@@ -314,22 +348,16 @@ function get_audience_list($query, $offset, $limit){
         // 해당 id로 보여졌으면 다시 보이지 않아도 됨
         // 
         if(!array_key_exists($element['uid'], $list_keys)) {
-
           if ($index < $offset) { $index++; continue; }
-
-          $login_flag = db_result(db_query("SELECT count(sid) FROM {sessions} WHERE uid = %d", $element['uid']));
-
-          $element['loginStatus'] = empty($login_flag) ? FALSE: TRUE;
-          $element['userPicture'] = empty($element['userPicture']) ? null : $base_url.'/'.$element['userPicture'];
+          $audience_list[] = (array)_get_element($element['uid'], $element['comment'], $element['type'], $element['timestamp']);
 
           $list_keys[$element['uid']] = 'FOUND';
-
-          $audience_list[] = (object)$element;
           $found++;
+          if ($limit > 0 && $found+1 == $limit) { break; }
+
 
         }
 
-        if ($limit > 0 && $found == $limit) { break; }
     }
 
     return $audience_list;
@@ -339,33 +367,18 @@ function get_extra_audience_list($audience_list, $add_uid_list, $offset, $limit)
     $extra_audience_list = array();
 
     foreach($add_uid_list as $element_uid) {
+
       if($element_uid == 0) continue;
 
       if( (!array_key_exists($element_uid, $audience_list))
         && (!array_key_exists($element_uid, $extra_audience_list )) ) {
 
         if ($index < $offset) { $index++; continue;}
-        $account_tmp = user_load($element_uid);
 
-        $login_flag = db_result(db_query("SELECT count(sid) FROM {sessions} WHERE uid = %d", $element_uid));
-
-        $element = array("comment" => null, 
-                "type" => null, 
-                "timestamp"=> null, 
-                "uid" => $account_tmp->uid, 
-                "userName" => $account_tmp->name, 
-                "userNickName" => $account_tmp->profile_nickname, 
-                "access" => $account_tmp->access
-        );
-
-        $element['loginStatus'] = empty($login_flag) ? FALSE: TRUE;
-        $element['userPicture'] = empty($element['userPicture']) ? null : $base_url.'/'.$element['userPicture'];
-
-        $extra_audience_list[] = (object)$element;
+        $extra_audience_list[] = (array)_get_element($element_uid, null, null, null);
         $found++;
+        if($limit > 0 && $found+1 == $limit) { break; }
       }
-
-      if($limit > 0 && $found == $limit) { break; }
     }
     return $extra_audience_list;
 }
@@ -373,6 +386,7 @@ function get_extra_audience_list($audience_list, $add_uid_list, $offset, $limit)
 // 친구 또는 일반인들 해당 프로그램 관련자 + others 를 리턴한다.
 // 
 function tvchat_service_audience_list($showId,$friend_flag=0,$offset=0,$limit=0) {
+  module_load_include('inc', 'views_service');
   try{
     global $user;
     global $base_url;
@@ -399,9 +413,16 @@ function tvchat_service_audience_list($showId,$friend_flag=0,$offset=0,$limit=0)
     // 
     $query = _get_query_for_audience_list($issue_id_list, $friend_flag, $friends_uid_list);
 
-    $audience_list = get_audience_list($query, $offset, $limit);
+    /*
+    $args = array();
+    $args[] = join('+', $issue_id_list);
+    $args[] = join('+', $friends_uid_list);
 
-    dsm($audience_list);
+    $query = views_service_get('query_tvchat_audience_list', null, $args, 0, 0, TRUE);
+    */
+
+    $audience_list = get_audience_list($query, $offset, $limit);
+    $audience_uid_list = array_value_recursive('uid', $audience_list);
 
     // limit 만큼 찾아서 찾을 필요가 없을 때,
     // 
@@ -419,15 +440,16 @@ function tvchat_service_audience_list($showId,$friend_flag=0,$offset=0,$limit=0)
       // 추가할 anonymous를 찾는다.
       } else {
           $_query = "SELECT users.uid AS uid FROM users users ORDER BY access DESC";
-          $result = db_query_range($_query, 0, 50);
-
+          $result = db_query($_query);
           while($element = db_fetch_object($result)) {
               $add_uid_list[] = $element->uid;
-
           }
       }
 
-      $extra_audience_list = get_extra_audience_list($auidience_list, $add_uid_list, $offset, $limit);
+      $add_uid_list = array_diff($add_uid_list, $audience_uid_list);
+
+      $extra_audience_list = get_extra_audience_list($audience_list, $add_uid_list, $offset, $limit);
+
     }
 
     if(!empty($extra_audience_list)) {
@@ -435,9 +457,9 @@ function tvchat_service_audience_list($showId,$friend_flag=0,$offset=0,$limit=0)
     }
 
     if(empty($audience_list)) {
-    return services_error(t('No Data Found'), 511);
+        return services_error(t('No Data Found'), 511);
     }
-    return $ret_array;
+    return $audience_list;
 
   } catch (Exception $ex) {
     return services_errror(t('Error getting friend_list: $msg', array('@msg' => $ex->getMessage())));
