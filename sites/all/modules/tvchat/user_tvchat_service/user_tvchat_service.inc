@@ -192,6 +192,7 @@ function user_tvchat_service_signup($nick, $email, $phone_number, $fname=null, $
         }
     }
 
+    $account = user_load($user->uid);
     profile_load_profile(&$account);
     $edit = array(
         'profile_nickname' => $nick,
