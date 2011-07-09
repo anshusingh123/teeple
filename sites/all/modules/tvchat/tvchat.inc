@@ -1,6 +1,5 @@
 <?php
 include 'XMPPHP/XMPP.php';
-
 /**
   print check status
 */
@@ -721,5 +720,122 @@ function _file_upload($fname, $attachment) {
     if($file->filesize >0) { return $file; }
   }
   return NULL;
+}
+
+function views_views_pre_execute(&$view) {
+ drupal_set_message($view->name);
+
+ if($view->name=='query_tvchat_audience_list_1' 
+     || $view->name=='query_tvchat_audience_list_2' ) {
+
+     if(empty($view->args)) { 
+         $view->build_info['query']=
+             "SELECT
+             comments.cid AS cid, 
+             comments.comment AS comment,
+             node_comments.nid AS node_comments_nid, 
+             node_comments.language AS node_comments_language, 
+             node_comments.type AS node_comments_type, 
+             users_comments.uid AS users_comments_uid, 
+             users_comments_profile_values_profile_nickname.value AS users_comments_profile_values_profile_nickname_value,
+              users_comments_profile_values_profile_nickname.uid AS users_comments_profile_values_profile_nickname_uid, 
+              users_comments.access AS users_comments_access, 
+              users_comments.picture AS users_comments_picture, 
+              users_comments.name AS users_comments_name, 
+              users_comments.mail AS users_comments_mail, 
+              comments.timestamp AS comments_timestamp 
+              FROM comments comments  LEFT JOIN node node_comments ON comments.nid = node_comments.nid LEFT JOIN users users_comments ON comments.uid = users_comments.uid LEFT JOIN profile_values users_comments_profile_values_profile_nickname ON users_comments.uid = users_comments_profile_values_profile_nickname.uid AND users_comments_profile_values_profile_nickname.fid = '5' 
+              WHERE comments.cid IN ( SELECT max(cid) cid FROM comments GROUP BY comments.uid ) AND users_commemnts.status = 1
+              ORDER BY comments_timestamp DESC";
+
+     } else {
+
+         $where[] = empty($view->args[0]) ? '': ' comments.nid IN ('.$view->args[0].')';
+         if($view->name == 'query_tvchat_audience_list_2') { 
+            $where[] = empty($view->args[1]) ? '':' comments.uid NOT IN ('.$view->args[1].')';
+         } else {
+            $where[] = empty($view->args[1]) ? '':' comments.uid IN ('.$view->args[1].')';
+         }
+
+         if(!empty($where)) {
+             $where = 'WHERE '.join(' AND ', $where);
+         }
+
+         $view->build_info['query']=
+             "SELECT
+             comments.cid AS cid, 
+             comments.comment AS comment,
+             node_comments.nid AS node_comments_nid, 
+             node_comments.language AS node_comments_language, 
+             node_comments.type AS node_comments_type, 
+             users_comments.uid AS users_comments_uid, 
+             users_comments_profile_values_profile_nickname.value AS users_comments_profile_values_profile_nickname_value,
+              users_comments_profile_values_profile_nickname.uid AS users_comments_profile_values_profile_nickname_uid, 
+              users_comments.access AS users_comments_access, 
+              users_comments.picture AS users_comments_picture, 
+              users_comments.name AS users_comments_name, 
+              users_comments.mail AS users_comments_mail, 
+              comments.timestamp AS comments_timestamp 
+              FROM comments comments  LEFT JOIN node node_comments ON comments.nid = node_comments.nid LEFT JOIN users users_comments ON comments.uid = users_comments.uid LEFT JOIN profile_values users_comments_profile_values_profile_nickname ON users_comments.uid = users_comments_profile_values_profile_nickname.uid AND users_comments_profile_values_profile_nickname.fid = '5' WHERE
+              comments.cid IN ( SELECT max(cid) cid FROM comments ".$where." GROUP BY comments.uid ) AND users_comments.status = 1
+              ORDER BY comments_timestamp DESC";
+
+     }
+   }
+}
+
+function get_login_status($uid) {
+    $login_flag = db_result(db_query("SELECT count(sid) FROM {sessions} WHERE uid = %d", $element_uid));
+
+    return empty($login_flag)? FALSE: TRUE;
+}
+
+function args_mapper($view_name, $view_results){
+  global $base_url;
+  $ret_array = array();
+
+  switch($view_name) {
+    case 'query_tvchat_audience_list_1':
+    case 'query_tvchat_audience_list_2':
+        foreach($view_results as $element) {
+          $element_arr = (array)$element;
+          $ret_array[] = array(
+            'comment' => $element_arr['comment'],
+            'type' => $element_arr['node_comments_type'],
+            'timestamp' => date('Y-m-d H:i',$element_arr['comments_timestamp']),
+            'uid'   => $element_arr['users_comments_uid'],
+            'userId' => $element_arr['users_comments_uid'],
+            'userName' => $element_arr['users_comments_name'],
+            'loginStatus' => get_login_status($element_arr['users_comments_uid']),
+            'userNickName'=>  $element_arr['users_comments_profile_values_profile_nickname_value'],
+            'access' => date('Y-m-d H:i', $element_arr['users_comments_access']),
+            'userPicture' => empty($element_arr['users_comments_picture']) ? null: $base_url.'/'.$element_arr['users_comments_picture']
+          );
+        }
+        break;
+
+    case 'query_tvchat_ext_audience_list_1':
+    case 'query_tvchat_ext_audience_list_2':
+        foreach($view_results as $element) {
+          $element_arr = (array)$element;
+          $ret_array[] = array(
+            'comment' => null,
+            'type' => null, 
+            'timestamp' => null,
+            'uid'   => $element_arr['uid'],
+            'userId' => $element_arr['uid'],
+            'userName' => $element_arr['users_name'],
+            'loginStatus' => get_login_status($element_arr['uid']),
+            'userNickName'=>  $element_arr['profile_values_profile_nickname_value'],
+            'access' => date('Y-m-d H:i', $element_arr['users_access']),
+            'userPicture' => empty($element_arr['users_picture']) ? null: $base_url.'/'.$element_arr['users_picture']
+          );
+        }
+        break;
+
+    default:
+      break;
+  }
+  return $ret_array;
 }
 

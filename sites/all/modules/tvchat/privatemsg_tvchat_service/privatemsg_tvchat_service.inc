@@ -207,6 +207,10 @@ function privatemsg_tvchat_service_get_uids($uid=0) {
     };
   };
 
+  if(empty($returns)) {
+      return services_error(t('No Data Found'), 502);
+  }
+
   // return the full thread.
   return $returns;
 }
@@ -276,6 +280,10 @@ function privatemsg_tvchat_service_get_msg($fr_uid, $uid=0, $offset=0, $limit=0)
     };
   };
 
+  if(empty($returns)) {
+      return services_error(t('No Data Found'), 502);
+  }
+
   // return the full thread.
   return $returns;
 }
@@ -285,7 +293,16 @@ function privatemsg_tvchat_service_get_msg_with_recipient_uid($recipient_uid, $o
 
     $thread_id = _get_thread_id_by_uid($user->uid, $recipient_uid);
 
-    $returns = privatemsg_tvchat_service_get_thread($thread_id, $offset);
+    if($thread_id > 0) {
+        $returns = privatemsg_tvchat_service_get_thread($thread_id, $offset);
+
+        if(empty($returns)) {
+            return services_error(t('No Data Found'), 502);
+        }
+
+    } else {
+        return services_error(t('No Data Found'), 502);
+    }
 
     return $returns;
 }
