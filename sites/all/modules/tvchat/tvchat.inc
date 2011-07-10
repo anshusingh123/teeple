@@ -483,7 +483,9 @@ function tvchat_send_xmpp_message($authorId,$recipientUids,$body,$thread_id=0,$m
     global $base_root;
     global $base_url;
 
-    $xmpp = XMPPHP_XMPP::getInstance('newbiz.uangel.com', 5222, '1', 'tvchat.123', 'teeple', 'newbiz.uangel.com', false, XMPPHP_Log::LEVEL_INFO);
+    $xmpp_server = substr($base_root, 7);
+
+    $xmpp = XMPPHP_XMPP::getInstance($xmpp_server, 5222, '1', 'tvchat.123', 'teeple', $xmpp_server, false, XMPPHP_Log::LEVEL_INFO);
 
     if (!isset($xmpp)) {
         watchdog('xmpp', 'xmpp undefined');
