@@ -1,4 +1,4 @@
 sites/default/files/
 *.swp
-/var/www/tvchat/smsgw_module/linux_sms_module/conf/unix/config.cfg
-/var/www/tvchat/smsgw_module/linux_sms_module/lib/unix/smsClient.pid
+sites/default/settings.php
+

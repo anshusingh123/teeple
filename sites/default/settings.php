@@ -257,6 +257,3 @@ ini_set('url_rewriter.tags',        '');
 #   'forum'      => 'Discussion board',
 #   '@count min' => '@count minutes',
 # );
-
-// include "sites/all/modules/fb/fb_url_rewrite.inc";
-// include "sites/all/modules/fb/fb_settings.inc";
