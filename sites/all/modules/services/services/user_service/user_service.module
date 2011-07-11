@@ -60,7 +60,7 @@ function user_service_service() {
 
     // user.login
     array(
-      '#method'           => 'user.login',
+      '#method'           => 'user.loginOrg',
       '#callback'         => 'user_service_login',
       '#access callback'  => 'services_access_menu',
       '#file'             => array('file' => 'inc', 'module' => 'user_service'),

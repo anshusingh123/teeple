@@ -85,27 +85,15 @@ function user_service_get_access($uid) {
  * @return
  *   A valid session object.
  */
-function user_service_login($username, $password, $phone_number) {
+function user_service_login($username, $password) {
   global $user;
 
-  /*
   if ($user->uid) {
     return services_error(t('Already logged in as !user.', array('!user' => $user->name)), 406);
   }
-  */
-
-  $params = array();
-  $params['name'] = $username;
-
-  $user = user_load($params);
 
   $user = user_authenticate(array('name' => $username, 'pass' => $password));
   if ($user->uid) {
-
-    // one session id for one user
-    // youngmin, modified 
-    sess_destroy_uid($user->uid);
-
     // Regenerate the session ID to prevent against session fixation attacks.
     sess_regenerate();
     $array = array();
@@ -115,18 +103,9 @@ function user_service_login($username, $password, $phone_number) {
     $return->sessid = session_id();
     $return->user = $user;
 
-    // Profile phone_number update
-    if (isset($phone_number)) {
-        $edit = array();
-        if ($phone_number) { $edit['profile_phone_no'] = $phone_number; }
-        profile_save_profile($edit, $user, 'Personal information');
-    }
-
     return $return;
   }
-
   session_destroy();
-  // return services_error(t('Wrong username or password. '), 401);
   return services_error(t('Wrong username or password. '), 401);
 }
 

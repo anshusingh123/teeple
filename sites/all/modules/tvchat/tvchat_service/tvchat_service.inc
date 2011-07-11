@@ -132,24 +132,25 @@ function _fetch_existing_phone_list($phone_list) {
         if(!empty($account)) {
             $phone_no = $element->value;
 
-            $friends_list[$phone_no]['uid']     = $account->uid;
-            $friends_list[$phone_no]['userId']  = $account->uid;
-            $friends_list[$phone_no]['status']  = $account->status;
-            $friends_list[$phone_no]['phone']   = $phone_no;
-            $friends_list[$phone_no]['userName'] = $account->name;
-            $friends_list[$phone_no]['userNickName'] = $account->profile_nickname;
-            $friends_list[$phone_no]['userPicture'] = empty($account->picture) ? null : $base_url.'/'.$account->picture;
-            $friends_list[$phone_no]['exist'] = 'yes';
+            $friends_list[$phone_no] = array (
+                'uid'       => $account->uid,
+                'userId'    => $account->uid,
+                'status'    => $account->status,
+                'phone'     => $phone_no,
+                'userName'  => $account->name,
+                'userNickName' => $account->profile_nickname,
+                'userPicture' => empty($account->picture) ? null : $base_url.'/'.$account->picture,
+                'exist'     => 'yes'
+            );
         }
     }
     return $friends_list;
 }
 
-function already_request($fr_uid) {
-    global $user;
+function already_request($uid, $fr_uid) {
 
     $type = user_relationships_type_load(array('name' => 'Friend'));
-    $rels = user_relationships_load( array('rtid' => $type->rtid, 'between' => array($user->uid, $fr_uid)));
+    $rels = user_relationships_load( array('rtid' => $type->rtid, 'between' => array($uid, $fr_uid)));
 
     if (count($rels) > 0) {
         $rel = array_shift($rels);
@@ -161,20 +162,20 @@ function already_request($fr_uid) {
     return false;
 }
 
-function _check_user_relationship($friends_uid_list) {
+function _check_user_relationship($phone_uid_list) {
     global $user;
 
-    $query_friends_uid_list = implode("','", $friends_uid_list);
+    $query_phone_uid_list = implode("','", $phone_uid_list);
 
     // if friend's request already exist 
     // 해당 사용자가 나에게 친구 요청을 이미 한 경우인지 
     // 
-    $_query = sprintf("SELECT a.rid, a.requester_id, a.approved, b.value FROM user_relationships a, profile_values b WHERE a.requester_id IN ('".$query_friends_uid_list."') and a.requester_id = b.uid");
+    $_query = sprintf("SELECT a.rid, a.requester_id, a.approved, b.value FROM user_relationships a, profile_values b WHERE a.requester_id IN ('".$phone_uid_list."') and a.requester_id = b.uid");
     $db_results = db_query($_query);
 
-    $friends_requester_uid_list = array();
+    $already_requested_uid_list = array();
     while ($element = db_fetch_object($db_results)) {
-        $friends_requester_uid_list[] = $element->requester-id;
+        $already_requested_uid_list[] = $element->requester-id;
 
         // requested but not approved 
         // 아직 승인하지 않았다면 
@@ -184,10 +185,10 @@ function _check_user_relationship($friends_uid_list) {
         }
     }
 
-    // if friend's request doesn't exist 
+    // if friend's request doesn't exist
     // (my contact doesn't exist in other's contact list 
-    $friends_non_requester_uid_list = array_diff($friends_uid_list, $friends_requester_uid_list);
-    foreach ($friends_non_requester_uid_list as $uid) {
+    $friends_non_requester_uid_list = array_diff($friends_uid_list, $already_requested_uid_list);
+    foreach ($already_requested_uid_list as $uid) {
         if(already_request($user->uid, $uid)) { continue; }
         user_relationship_service_request("1", $uid, 'Friend');
     }
@@ -242,7 +243,7 @@ function tvchat_service_upload_contacts($contacts_json) {
     // 
     $ret_contact_list= _fetch_existing_phone_list($phone_list);
 
-    // 주소록 존재 이용자에 대해서 친구 요청이 있었는지 확인한다.
+    // 존재 이용자에 대해서 친구 요청이 있었는지 확인한다.
     // 
     if(!empty($ret_contact_list)) {
       $existing_uid_list = array_value_recursive('uid', $ret_contact_list);

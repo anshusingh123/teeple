@@ -1,5 +1,6 @@
 <?php
 include 'XMPPHP/XMPP.php';
+
 /**
   print check status
 */
@@ -840,4 +841,19 @@ function args_mapper($view_name, $view_results){
   }
   return $ret_array;
 }
+
+function tvchat_user_save_profile(&$edit, &$user, $category, $register = FALSE) { 
+    $result = _profile_get_fields($category, $register); 
+    while ($field = db_fetch_object($result)) { 
+        if(!empty($edit[$field->name])){ // this prevent from deleting other stored fields 
+            if (_profile_field_serialize($field->type)) { 
+                $edit[$field->name] = serialize($edit[$field->name]); 
+            } 
+            db_query("DELETE FROM {profile_values} WHERE fid = %d AND uid = %d", $field->fid, $user->uid); 
+            db_query("INSERT INTO {profile_values} (fid, uid, value) VALUES (%d, %d, '%s')", $field->fid, $user->uid, $edit[$field->name]); 
+        } 
+        // Mark field as handled (prevents saving to user->data). 
+        $edit[$field->name] = NULL; 
+    } 
+} 
 

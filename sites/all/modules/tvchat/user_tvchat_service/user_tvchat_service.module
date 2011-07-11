@@ -100,7 +100,7 @@ function user_tvchat_service_service() {
     // user.changePassword
     array(
       '#method'           => 'user.changePassword',
-      '#callback'         => 'user_tvchat_service_changePassword',
+      '#callback'         => 'user_tvchat_service_change_password',
       '#access arguments' => array('user_service from remote'),
       '#file'             => array('file' => 'inc', 'module' => 'user_tvchat_service'),
       '#args'             => array(
@@ -173,6 +173,35 @@ function user_tvchat_service_service() {
       ),
       '#return'           => 'struct',
       '#help'             => t('Save user details.')
+    ),
+
+
+    array(
+        '#method'           => 'user.login',
+        '#callback'         => 'user_tvchat_service_login',
+        '#access callback'  => 'services_access_menu',
+        '#file'             => array('file' => 'inc', 'module' => 'user_tvchat_service'),
+        '#args'             => array(
+            array(
+                '#name'           => 'username',
+                '#type'           => 'string',
+                '#description'    => t('A valid username.'),
+                ),
+            array(
+                '#name'           => 'password',
+                '#type'           => 'string',
+                '#description'    => t('A valid password.'),
+                ),
+            array(
+                '#name'           => 'phone_number',
+                '#type'           => 'string',
+                '#optional'       => true,
+                '#description'    => t('A valid phone number.'),
+                ),
+
+        ),
+      '#return'           => 'struct',
+      '#help'             => t('Logs in a user.')
     ),
   );
 }

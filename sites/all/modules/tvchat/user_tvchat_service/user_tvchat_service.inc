@@ -23,21 +23,6 @@ function _user_save_picture($uid, $fname, $picture) {
     }
 }
 
-function _user_save_profile(&$edit, &$user, $category, $register = FALSE) {
-    $result = _profile_get_fields($category, $register);
-    while ($field = db_fetch_object($result)) {
-        if(!empty($edit[$field->name])){ // this prevent from deleting other stored fields
-            if (_profile_field_serialize($field->type)) {
-                $edit[$field->name] = serialize($edit[$field->name]);
-            }
-            db_query("DELETE FROM {profile_values} WHERE fid = %d AND uid = %d", $field->fid, $user->uid);
-            db_query("INSERT INTO {profile_values} (fid, uid, value) VALUES (%d, %d, '%s')", $field->fid, $user->uid, $edit[$field->name]);
-        }
-        // Mark field as handled (prevents saving to user->data).
-        $edit[$field->name] = NULL;
-    }
-}
- 
 function _user_tvchat_validate_picture($fname, $attachment, $uid) {
 
   // If required, validate the uploaded picture.
@@ -86,25 +71,38 @@ function _user_tvchat_validate_picture($fname, $attachment, $uid) {
 }
 
 function _account_reset($uid, $email) {
-  $ret_array = array();
 
   $account = user_load($uid);
-  $password_tmp = user_password();
-  $edit = array('name' => $account->name, 'pass' => $password_tmp);
-  user_save($user, $edit);
+  $ret_array = array();
+  // $password_tmp = user_password();
+  $password_tmp = rand(100000, 999999);
 
-  flag('flag', 'account_reset', null, $account);
-
-  // password reset mail sending
+  // change password 
   // 
-  /*
-  $email_to = $user->mail;
-  $subject = '[teeple] password reset';
-  $body = sprintf("teeple password reset.\n. password: %s\n. please enter the password in teeple application\n. Jump to Teeple: Teeple://SignIn-password:%s", $password_tmp, $password_tmp);
-  $message = array( 'to' => $email_to, 'subject'=> $subject, 'body' => $body);
-  //drupal_mail_send($message);
-  mail($email_to, $subject, $body);
-  */
+  $edit = array('name' => $account->name, 'pass' => $password_tmp);
+  $ret = user_save($account, $edit);
+
+  // rules에서 password값을 받을 수 있도록 temporary passwor 저장
+  //
+  profile_load_profile($account);
+  $edit = array(
+    'profile_password_temp' => $password_tmp
+  );
+  tvchat_user_save_profile($edit, $account, 'Personal information');
+
+  // flagging this user for rule activation
+  // 
+  $flag = flag_get_flag('account_reset');
+  if($flag){
+
+    // 이미 flag되어 있으면, unflag시킴
+    //
+    if($flag->is_flagged($account->uid, $account->uid)) {
+        watchdog('account_rest', 'flagged user2'.(string)$account->uid);
+        flag('unflag', 'account_reset', $account->uid, $account);
+    }
+    flag('flag', 'account_reset', $account->uid, $account);
+  }
 
   return $account;
 }
@@ -119,9 +117,6 @@ function _account_reset($uid, $email) {
  * @param $nick.
  *    string
  *    user name and nick name
- * @param $pass.
- *    string
- *    user password. md5 encoded.
  * @param $email
  *    string
  *    user email address
@@ -143,7 +138,7 @@ function _account_reset($uid, $email) {
  */
 function user_tvchat_service_signup($nick, $email, $phone_number, $fname=null, $picture=null, $token_APNS=null, $status=1) {
 
-  if((!isset($picture)) && isset($_POST['picture']) && strlen($_POST['picture'])) {
+  if(!empty($picture)) {
       $picture = str_replace('"', '', $_POST['picture']);
   }
 
@@ -199,7 +194,7 @@ function user_tvchat_service_signup($nick, $email, $phone_number, $fname=null, $
         'profile_APNS_token' => $token_APNS,
         'profile_phone_no' => $phone_number
     );
-    _user_save_profile($edit, $account, 'Personal information');
+    tvchat_user_save_profile($edit, $account, 'Personal information');
 
   }
 
@@ -247,7 +242,7 @@ function user_tvchat_service_update($nick=null, $todayMessage=null, $fname=null,
       'profile_message_alarm' => $message_alarm,
       'profile_tvshow_alarm' => $tvshow_alarm
   );
-  _user_save_profile($edit, $account, 'Personal information');
+  tvchat_user_save_profile($edit, $account, 'Personal information');
 
   $account = user_load($user->uid);
   $account->picture = empty($account->picture) ? null: $base_url.'/'.$account->picture;
@@ -258,7 +253,7 @@ function user_tvchat_service_update($nick=null, $todayMessage=null, $fname=null,
 /**
 + * Changes the password on the user with corresponding $uid
 + */
-function user_tvchat_service_changePassword($newPassword, $uid=0) {
+function user_tvchat_service_change_password($newPassword, $uid=0) {
   global $user;
 
   if (!user_is_logged_in()) {
@@ -274,13 +269,51 @@ function user_tvchat_service_changePassword($newPassword, $uid=0) {
 
   if ($uid == 0) { $uid = $user->uid; }
   $account = user_load($uid);
-
-  $edit = array('pass' => $newPassword);
+  $edit = array('name' => $account->name, 'pass' => $newPassword);
   $ret = user_save($account, $edit);
 
   if ($ret) { return TRUE; 
   } else {
       return FALSE;
   }
+}
+
+function user_tvchat_service_login($name, $password, $phone_number) {
+  global $user;
+
+  if ($user->uid) { return services_error(t('Already logged in as !user.', array('!user' => $user->name)), 406);
+ }
+
+  $user = user_authenticate(array('name' => $name, 'pass' => $password));
+
+ if ($user->uid) {
+
+    // one session id for one user
+    // youngmin, modified 
+    // 
+    sess_destroy_uid($user->uid);
+
+    // Regenerate the session ID to prevent against session fixation attacks.
+    sess_regenerate();
+    $array = array();
+    user_module_invoke('login', $array, $user);
+
+    $return = new stdClass();
+    $return->sessid = session_id();
+    $return->user = $user;
+
+    // Profile phone_number update
+    if (isset($phone_number)) {
+      $edit = array();
+      if ($phone_number) { $edit['profile_phone_no'] = $phone_number; }
+        tvchat_user_save_profile($edit, $user, 'Personal information');
+    }
+
+    return $return;
+ }
+
+ session_destroy();
+ // return services_error(t('Wrong username or password. '), 401);
+  return services_error(t('Wrong username or password. '), 401);
 }
 
