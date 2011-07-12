@@ -91,6 +91,11 @@ function node_setting($data, $operators, $tvshows) {
 $row = 1;
 
 $file_name = './sites/default/files/Upload/'.$_GET['file'];
+$output_file_name = './sites/default/files/Upload/'.$_GET['file'].'.output.csv';
+$error_file_name = './sites/default/files/Upload/'.$_GET['file'].'.error.csv';
+
+$output = fopen($output_file_name, "w+");
+$error  = fopen($error_file_name, "w+");
 
 echo $file_name;
 
@@ -101,8 +106,19 @@ if (($handle = fopen($file_name, 'r')) !== FALSE) {
       echo "<p> $num fields in line $row: <br /></p>\n";
 
       $node = node_setting($data, $operators, $tvshows);
+
+      if(!isset($node)) {
+          fwrite($error, join(',',$data));
+          fwrite($error, chr(10));
+          continue;
+      }
+
       node_save($node);
       echo "NID: ".$node->nid;
+
+      $data[] = $node->nid;
+      fwrite($output, join(',',$data));
+      fwrite($output, chr(10));
 
       for ($c=0; $c < $num; $c++) {
         echo $data[$c] . "<br />\n";
@@ -111,5 +127,7 @@ if (($handle = fopen($file_name, 'r')) !== FALSE) {
     }
 }
 fclose($handle);
+fclose($output);
+fclose($error);
 
 ?>

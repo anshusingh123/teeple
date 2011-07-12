@@ -64,6 +64,8 @@ function node_setting($data, $operators, $genres) {
     $node->language = 'en';
     $node->comment = 2;   // 0-disable,1-read only,2-read/write 
 
+    echo 'Error: '.$node->title;
+
     {
       $file = new stdClass();
       $file->filepath = "sites/default/files/Upload/Logo/".$data[2].".jpg";
@@ -84,9 +86,12 @@ function node_setting($data, $operators, $genres) {
     $node->field_weeks[0]['value'] = $data[4];
     $node->field_start_time[0]['value'] = sprintf('%02d:%02d',$data[5],$data[6]);
     $node->field_end_time[0]['value'] = sprintf('%02d:%02d', $data[7], $data[8]);
+    $node->body = $data[9];
 
     // default master id = 1
     $node->field_master[0]['uid'] = '1';
+
+    print_r($node);
 
     return $node;
 }
@@ -104,29 +109,44 @@ function duplicate_check(){
 
 $row = 1;
 $file_name = './sites/default/files/Upload/'.$_GET['file'];
+$output_file_name = './sites/default/files/Upload/'.$_GET['file'].'.output.csv';
+$error_file_name = './sites/default/files/Upload/'.$_GET['file'].'.error.csv';
+
+$output = fopen($output_file_name, "w+");
+$error  = fopen($error_file_name, "w+");
 
 if (($handle = fopen($file_name, "r")) !== FALSE) {
-
     while (($data = fgetcsv($handle, 4096, ",")) !== FALSE) {
+
       $num = count($data);
+
       echo "<p> $num fields in line $row: <br /></p>\n";
 
       $node = node_setting($data, $operators, $genres);
 
-      if(!isset($node)) { continue; }
+      if(!isset($node)) { 
+          fwrite($error, join(',',$data));
+          fwrite($error, chr(10));
+          continue; 
+      }
 
       node_save($node);
       echo "NID: ".$node->nid;
+      $data[] = $node->nid;
+      fwrite($output, join(',',$data));
+      fwrite($output, chr(10));
 
       for ($c=0; $c < $num; $c++) {
         echo $data[$c] . "<br />\n";
       }
+
       $row++;
     }
 }
 fclose($handle);
+fclose($output);
+fclose($error);
 
-duplicate_check();
-
+// duplicate_check();
 ?>
 

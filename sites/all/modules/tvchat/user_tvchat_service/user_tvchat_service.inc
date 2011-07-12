@@ -72,23 +72,13 @@ function _user_tvchat_validate_picture($fname, $attachment, $uid) {
 
 function _account_reset($uid, $email) {
 
+
   $account = user_load($uid);
   $ret_array = array();
   // $password_tmp = user_password();
   $password_tmp = rand(100000, 999999);
 
-  // change password 
-  // 
-  $edit = array('name' => $account->name, 'pass' => $password_tmp);
-  $ret = user_save($account, $edit);
-
-  // rules에서 password값을 받을 수 있도록 temporary passwor 저장
-  //
-  profile_load_profile($account);
-  $edit = array(
-    'profile_password_temp' => $password_tmp
-  );
-  tvchat_user_save_profile($edit, $account, 'Personal information');
+  user_tvchat_service_change_password($password_tmp, $uid);
 
   // flagging this user for rule activation
   // 
@@ -104,6 +94,12 @@ function _account_reset($uid, $email) {
     flag('flag', 'account_reset', $account->uid, $account);
   }
 
+  profile_load_profile($account);
+  $edit = array(
+    'profile_password_temp' => $password_tmp
+  );
+  tvchat_user_save_profile($edit, $account, 'Personal information');
+
   return $account;
 }
 
@@ -117,6 +113,9 @@ function _account_reset($uid, $email) {
  * @param $nick.
  *    string
  *    user name and nick name
+ * @param $pass.
+ *    string
+ *    user password. md5 encoded.
  * @param $email
  *    string
  *    user email address
@@ -269,6 +268,8 @@ function user_tvchat_service_change_password($newPassword, $uid=0) {
 
   if ($uid == 0) { $uid = $user->uid; }
   $account = user_load($uid);
+
+  watchdog('change password', 'name: '.$account->name.' password: '.$newPassword);
   $edit = array('name' => $account->name, 'pass' => $newPassword);
   $ret = user_save($account, $edit);
 
@@ -281,17 +282,19 @@ function user_tvchat_service_change_password($newPassword, $uid=0) {
 function user_tvchat_service_login($name, $password, $phone_number) {
   global $user;
 
+  watchdog('tvchat_login', 'user id: '.$name.'password: '.$password);
+
   if ($user->uid) { return services_error(t('Already logged in as !user.', array('!user' => $user->name)), 406);
  }
 
-  $user = user_authenticate(array('name' => $name, 'pass' => $password));
+ $user = user_authenticate(array('name' => $name, 'pass' => $password));
 
  if ($user->uid) {
 
     // one session id for one user
     // youngmin, modified 
     // 
-    sess_destroy_uid($user->uid);
+    // sess_destroy_uid($user->uid);
 
     // Regenerate the session ID to prevent against session fixation attacks.
     sess_regenerate();
@@ -303,11 +306,13 @@ function user_tvchat_service_login($name, $password, $phone_number) {
     $return->user = $user;
 
     // Profile phone_number update
+    /*
     if (isset($phone_number)) {
       $edit = array();
       if ($phone_number) { $edit['profile_phone_no'] = $phone_number; }
         tvchat_user_save_profile($edit, $user, 'Personal information');
     }
+    */
 
     return $return;
  }
@@ -316,4 +321,5 @@ function user_tvchat_service_login($name, $password, $phone_number) {
  // return services_error(t('Wrong username or password. '), 401);
   return services_error(t('Wrong username or password. '), 401);
 }
+
 
